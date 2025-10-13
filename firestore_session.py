@@ -107,7 +107,7 @@ def save_session_history(session_id: str, session_data: dict):
         # Batch write
         batch = db.batch()
         doc_ref = db.collection("sessions").document(session_id)
-        batch.set(doc_ref, update_data, merge=True)
+        batch.set(doc_ref, update_data, merge=False)
         batch.commit()
         
     except Exception as e:

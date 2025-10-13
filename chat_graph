@@ -1,0 +1,15 @@
+digraph {
+	symptom_collection
+	diagnosis
+	exposure_collection
+	location_collection
+	bq_submission
+	care_advice
+	END [shape=doublecircle]
+	symptom_collection -> diagnosis
+	diagnosis -> exposure_collection
+	exposure_collection -> location_collection
+	location_collection -> bq_submission
+	bq_submission -> care_advice
+	care_advice -> END
+}
