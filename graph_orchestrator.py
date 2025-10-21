@@ -1,3 +1,5 @@
+# graph_orchestrator.py
+
 """
 LangGraph-based orchestrator for public health chatbot
 This replaces the sequential workflow with a state graph that allows:
@@ -31,6 +33,7 @@ from agents.exposure_agent import run_agent as run_exposure
 from agents.diagnostic_agent import run_agent as run_diagnostic
 from agents.location_agent import run_agent as run_location
 from agents.bq_submitter_agent import run_agent as run_bq
+from agents.cluster_validation_agent import run_agent as run_cluster_validation
 from agents.care_agent import run_agent as run_care
 from firestore_session import get_session_history, save_session_history
 
@@ -76,6 +79,7 @@ class ChatState(TypedDict):
     
     # Final outputs
     report: dict
+    cluster_validation: dict 
     care_advice: dict
     
     # Control flags
@@ -124,9 +128,13 @@ def determine_start_node(state: dict) -> str:
     if state.get("care_advice"):
         return "symptom_collection"  # Already done
     
-    # Has report but no care advice
-    if state.get("report"):
+    # Has cluster validation but no care advice
+    if state.get("cluster_validation"):
         return "care_advice"
+
+    # Has report but no cluster validation
+    if state.get("report"):
+        return "cluster_validation"
     
     # Has location, ready for submission
     if state.get("location_json", {}).get("current_location_name"):
@@ -274,7 +282,7 @@ def diagnosis_node(state: ChatState) -> ChatState:
         elif confidence < 0.5:
             updates["console_output"] = f"Low confidence diagnosis: {final_diag} ({confidence:.0%})"
         else:
-            updates["console_output"] = f"Most Likely Diagnosis: {final_diag} ({confidence:.0%})"
+            updates["console_output"] = f"Preliminary Diagnosis: {final_diag} ({confidence:.0%} confidence)"
         
         # Reset clarification counter
         updates["clarification_attempts"] = 0
@@ -467,6 +475,88 @@ def bq_submission_node(state: ChatState) -> ChatState:
     
     return updates
 
+def cluster_validation_node(state: ChatState) -> ChatState:
+    """
+    Node 5.5: Validate diagnosis against active outbreak clusters.
+    
+    This runs AFTER BQ submission to cross-reference the user's diagnosis
+    against active disease outbreak clusters in their area.
+    """
+    
+    history = deserialize_history(state.get("history", []))
+    diagnosis = state.get("diagnosis", {})
+    
+    # Extract data needed for cluster validation
+    user_disease = diagnosis.get("final_diagnosis")
+    user_confidence = diagnosis.get("confidence", 0.5)
+    exposure_lat = state.get("exposure_latitude")
+    exposure_lon = state.get("exposure_longitude")
+    days_since_exposure = state.get("days_since_exposure")
+    illness_category = diagnosis.get("illness_category")
+    
+    # Skip cluster validation if we don't have required data
+    if not all([user_disease, exposure_lat is not None, exposure_lon is not None, 
+                days_since_exposure is not None]):
+        print("⚠️  Skipping cluster validation - missing exposure data")
+        return {
+            "history": serialize_history(history),
+            "cluster_validation": {},
+            "console_output": ""
+        }
+    
+    # Prepare payload for cluster validation agent
+    validation_payload = {
+        "user_disease": user_disease,
+        "user_confidence": user_confidence,
+        "exposure_latitude": exposure_lat,
+        "exposure_longitude": exposure_lon,
+        "days_since_exposure": days_since_exposure,
+        "illness_category": illness_category
+    }
+    
+    print(f"🔍 Validating diagnosis against outbreak clusters...")
+    
+    # Call cluster validation agent
+    validation_json, updated_history = run_cluster_validation(
+        json.dumps(validation_payload), 
+        history
+    )
+    validation_result = parse_json_from_response(validation_json)
+    
+    updates = {
+        "history": serialize_history(updated_history),
+        "cluster_validation": validation_result,
+        "console_output": ""
+    }
+    
+    # Check if diagnosis was refined by cluster data
+    if validation_result.get("cluster_found"):
+        validation_type = validation_result.get("validation_result")
+        
+        print(f"✅ Cluster validation: {validation_type}")
+        
+        # Update diagnosis if cluster suggested an alternative
+        if validation_type in ["ALTERNATIVE", "CONFIRMED"]:
+            refined_diagnosis = {
+                "final_diagnosis": validation_result.get("refined_diagnosis"),
+                "illness_category": diagnosis.get("illness_category"),
+                "confidence": validation_result.get("refined_confidence"),
+                "reasoning": validation_result.get("reasoning"),
+                "cluster_validated": True,
+                "original_diagnosis": validation_result.get("original_diagnosis"),
+                "original_diagnosis_confidence": user_confidence,  # ADD THIS
+                "validation_type": validation_type
+            }
+            updates["diagnosis"] = refined_diagnosis
+            
+            # Add cluster alert to console output if provided
+            cluster_message = validation_result.get("console_output", "")
+            if cluster_message:
+                updates["console_output"] = cluster_message
+    else:
+        print("ℹ️  No outbreak clusters matched")
+    
+    return updates
 
 def care_advice_node(state: ChatState) -> ChatState:
     """
@@ -587,6 +677,7 @@ def create_chat_graph():
     workflow.add_node("exposure_collection", exposure_collection_node)
     workflow.add_node("location_collection", location_collection_node)
     workflow.add_node("bq_submission", bq_submission_node)
+    workflow.add_node("cluster_validation", cluster_validation_node)
     workflow.add_node("care_advice", care_advice_node)
     
     # Set entry point
@@ -630,7 +721,8 @@ def create_chat_graph():
     )
     
     # Final path to completion
-    workflow.add_edge("bq_submission", "care_advice")
+    workflow.add_edge("bq_submission", "cluster_validation")
+    workflow.add_edge("cluster_validation", "care_advice")
     workflow.add_edge("care_advice", END)
     
     # Compile with checkpointing
@@ -699,6 +791,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
         "location_venue": session.get("state", {}).get("location_venue"),
         "location_json": session.get("state", {}).get("location_json", {}),
         "report": session.get("state", {}).get("report"),
+        "cluster_validation": session.get("state", {}).get("cluster_validation", {}),
         "care_advice": session.get("state", {}).get("care_advice"),
         "is_complete": False
     }
@@ -726,6 +819,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
                 "exposure_collection": exposure_collection_node,
                 "location_collection": location_collection_node,
                 "bq_submission": bq_submission_node,
+                "cluster_validation": cluster_validation_node,
                 "care_advice": care_advice_node
             }
             
@@ -770,6 +864,10 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
                             updates = bq_submission_node(current_state)
                             current_state.update(updates)
                             
+                            # Auto-continue to cluster validation
+                            updates = cluster_validation_node(current_state)
+                            current_state.update(updates)
+
                             updates = care_advice_node(current_state)
                             current_state.update(updates)
                 
@@ -780,6 +878,10 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
                         updates = bq_submission_node(current_state)
                         current_state.update(updates)
                         
+                        # Auto-continue to cluster validation
+                        updates = cluster_validation_node(current_state)
+                        current_state.update(updates)
+
                         updates = care_advice_node(current_state)
                         current_state.update(updates)
                 
@@ -798,6 +900,12 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
             initial_state.get("diagnosis", {}).get("final_diagnosis") != final_state.get("diagnosis", {}).get("final_diagnosis")
         )
 
+        # Also check if diagnosis was cluster-validated (confidence boost)
+        cluster_validated = (
+            final_state.get("diagnosis", {}).get("cluster_validated") == True and
+            not initial_state.get("diagnosis", {}).get("cluster_validated")
+        )
+
         newly_care_advice = (
             final_state.get("care_advice") and
             not initial_state.get("care_advice")
@@ -808,10 +916,16 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
             not initial_state.get("report")
         )
 
+        newly_cluster_validation = (
+            final_state.get("cluster_validation") and
+            not initial_state.get("cluster_validation")
+        )
+
         result = {
-            "diagnosis": final_state.get("diagnosis") if newly_diagnosed else None,
+            "diagnosis": final_state.get("diagnosis") if (newly_diagnosed or cluster_validated) else None,
             "care_advice": final_state.get("care_advice") if newly_care_advice else None,
             "report": final_state.get("report") if newly_report else None,
+            "cluster_validation": final_state.get("cluster_validation") if newly_cluster_validation else None,
             "console_output": final_state.get("console_output", "")
         }
         
@@ -833,6 +947,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
             "location_venue": final_state.get("location_venue"),
             "location_json": final_state.get("location_json"),
             "report": final_state.get("report"),
+            "cluster_validation": final_state.get("cluster_validation", {}),
             "care_advice": final_state.get("care_advice")
         }
 
@@ -943,13 +1058,29 @@ if __name__ == "__main__":
 
             # Show diagnosis if newly available
             diagnosis = result.get("diagnosis")
-            if diagnosis and diagnosis.get("final_diagnosis") and not shown_diagnosis:
+            if diagnosis and diagnosis.get("final_diagnosis"):
                 diag_name = diagnosis["final_diagnosis"]
                 confidence = diagnosis.get("confidence", 0)
                 category = diagnosis.get("illness_category", "unknown")
-
+                
+                # Check if this was cluster validated
+                if diagnosis.get("cluster_validated"):
+                    validation_type = diagnosis.get("validation_type", "CONFIRMED")
+                    original_conf = diagnosis.get("original_diagnosis_confidence", 0)
+                    
+                    if validation_type == "CONFIRMED":
+                        print(f"\n   ✅ Confirmed Diagnosis: {diag_name}")
+                        print(f"   📈 Confidence: {original_conf:.0%} → {confidence:.0%} (boosted by outbreak data)")
+                        print(f"   🏷️  Category: {category}")
+                    elif validation_type == "ALTERNATIVE":
+                        original_diag = diagnosis.get("original_diagnosis", "Unknown")
+                        print(f"\n   🔄 Updated Diagnosis: {original_diag} → {diag_name}")
+                        print(f"   📈 Confidence: {confidence:.0%} (based on outbreak cluster)")
+                        print(f"   🏷️  Category: {category}")
+                    
+                    shown_diagnosis = True
                 # Only show if not already displayed in console_output
-                if diag_name not in console_output:
+                elif diag_name not in console_output and not shown_diagnosis:
                     print(f"\n   📊 Diagnosis: {diag_name}")
                     print(f"   🏷️  Category: {category}")
                     print(f"   📈 Confidence: {confidence:.0%}")

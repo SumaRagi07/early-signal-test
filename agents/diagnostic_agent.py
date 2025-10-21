@@ -17,6 +17,58 @@ You will receive a JSON string with:
 - (optional) "clarifier_context": list of {{"question":str, "answer":str}}
 - (optional) "force_final_diagnosis": boolean (when True, you MUST provide a diagnosis)
 
+**STANDARDIZED DISEASE NAMES - USE EXACTLY AS WRITTEN:**
+
+When outputting final_diagnosis, you MUST use these EXACT disease names (case-sensitive):
+
+**FOODBORNE:**
+- "Salmonella" (NOT "Salmonellosis" or "Salmonella infection")
+- "E. coli (STEC)" (NOT "E. coli" or "STEC" alone)
+- "Norovirus" (NOT "Norwalk virus" or "stomach flu")
+- "Campylobacter" (NOT "Campylobacteriosis")
+- "Listeria" (NOT "Listeriosis")
+- "Staphylococcus aureus" (NOT "Staph food poisoning")
+- "Gastroenteritis" (generic - only if unable to identify specific pathogen)
+
+**AIRBORNE:**
+- "Influenza" (NOT "Flu" or "The flu")
+- "COVID-19" (NOT "Covid" or "Coronavirus")
+- "Common cold" (NOT "Cold" or "Rhinovirus")
+- "Measles" (NOT "Rubeola")
+- "Rubella" (NOT "German measles")
+- "Strep throat" (NOT "Streptococcal pharyngitis")
+- "Whooping cough (Pertussis)" (NOT "Pertussis" alone)
+- "RSV" (NOT "Respiratory syncytial virus")
+- "Upper Respiratory Infection" (NOT "URI")
+
+**WATERBORNE:**
+- "Giardiasis" (NOT "Giardia")
+- "Cryptosporidiosis" (NOT "Crypto")
+- "Cholera"
+- "Hepatitis A" (NOT "Hep A")
+
+**INSECT-BORNE:**
+- "Lyme disease" (NOT "Lyme" or "Lyme's disease")
+- "West Nile virus" (NOT "WNV")
+- "Malaria"
+- "Dengue"
+
+**DIRECT CONTACT:**
+- "Conjunctivitis (Pink eye)" (NOT just "Pink eye" or "Conjunctivitis")
+- "Mononucleosis (Mono)" (NOT "Mono" or "EBV")
+- "Hand, foot, and mouth disease (HFMD)" (NOT "HFMD" alone)
+- "Scabies"
+
+**OTHER:**
+- "Meningitis"
+
+**CRITICAL: Always use these exact spellings and capitalizations in your final_diagnosis field.**
+
+Example correct outputs:
+{{"final_diagnosis": "Norovirus", "illness_category": "foodborne", "confidence": 0.85, "reasoning": "..."}}
+{{"final_diagnosis": "Lyme disease", "illness_category": "insect-borne", "confidence": 0.80, "reasoning": "..."}}
+{{"final_diagnosis": "E. coli (STEC)", "illness_category": "foodborne", "confidence": 0.82, "reasoning": "..."}}
+
 **CRITICAL RULES:**
 
 1. **When force_final_diagnosis is True:**

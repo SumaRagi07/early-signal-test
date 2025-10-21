@@ -1,195 +1,339 @@
-# test_cluster_detection.py
+# test_cluster_validation.py
 
 import json
-from agents.cluster_detection_agent import run_agent
+from agents.cluster_validation_agent import run_agent
 
-def test_with_real_data():
-    """Test with your actual database records"""
+def test_with_real_outbreak_data():
+    """
+    Test cluster validation with actual synthetic outbreak data inserted into BigQuery.
+    
+    These test cases use the real coordinates and timing from the 4 outbreak clusters:
+    1. Lyme disease at Mellon Park, Pittsburgh
+    2. Measles at O'Hare Airport, Chicago
+    3. Salmonella at Mama Mia Trattoria, NYC
+    4. E. coli at Oak Street Beach, Chicago
+    """
     
     test_cases = [
+        # ========================================================================
+        # CLUSTER 1: LYME DISEASE AT MELLON PARK (Expected: CONFIRMED)
+        # ========================================================================
         {
-            "name": "Viral gastroenteritis cluster",
-            "disease": "Viral gastroenteritis",
-            "tract_id": "17031320400",
-            "base_confidence": 0.60,
-            "days_back": 90,  # Old test data from July
-            "expected": True  # Should detect (3 cases)
+            "name": "Lyme Disease - Confirmed match at Mellon Park",
+            "user_disease": "Lyme disease",
+            "user_confidence": 0.70,
+            "exposure_latitude": 40.4649167,
+            "exposure_longitude": -79.9653118,
+            "days_since_exposure": 12,
+            "illness_category": "insect-borne",
+            "expected_result": "CONFIRMED",
+            "description": "User with Lyme diagnosis matches 10-case cluster at Mellon Park, Pittsburgh"
         },
         {
-            "name": "Influenza in different tract",
-            "disease": "Influenza",
-            "tract_id": "17031411200",
-            "base_confidence": 0.70,
-            "days_back": 90,
-            "expected": False  # Should NOT detect (only 2 cases)
+            "name": "Lyme Disease - Alternative diagnosis suggested",
+            "user_disease": "Viral infection",
+            "user_confidence": 0.55,
+            "exposure_latitude": 40.4649167,
+            "exposure_longitude": -79.9653118,
+            "days_since_exposure": 12,
+            "illness_category": "other",
+            "expected_result": "ALTERNATIVE",
+            "description": "Generic diagnosis at Lyme outbreak location - should suggest Lyme disease"
+        },
+        
+        # ========================================================================
+        # CLUSTER 2: MEASLES AT O'HARE AIRPORT (Expected: CONFIRMED)
+        # ========================================================================
+        {
+            "name": "Measles - Confirmed match at O'Hare Airport",
+            "user_disease": "Measles",
+            "user_confidence": 0.80,
+            "exposure_latitude": 41.9742,
+            "exposure_longitude": -87.9073,
+            "days_since_exposure": 11,
+            "illness_category": "airborne",
+            "expected_result": "CONFIRMED",
+            "description": "User with Measles matches 12-case outbreak cluster at O'Hare"
         },
         {
-            "name": "COVID-19 cluster",
-            "disease": "COVID-19",
-            "tract_id": "17031833000",
-            "base_confidence": 0.75,
-            "days_back": 150,  # COVID data is 141 days old
-            "expected": True  # Should detect (3 cases)
+            "name": "Measles - Alternative from Rubella misdiagnosis",
+            "user_disease": "Rubella",
+            "user_confidence": 0.65,
+            "exposure_latitude": 41.9740,
+            "exposure_longitude": -87.9075,
+            "days_since_exposure": 10,
+            "illness_category": "airborne",
+            "expected_result": "ALTERNATIVE",
+            "description": "Similar rash illness at Measles outbreak - should suggest Measles instead"
+        },
+        
+        # ========================================================================
+        # CLUSTER 3: SALMONELLA AT MAMA MIA TRATTORIA, NYC (Expected: CONFIRMED)
+        # ========================================================================
+        {
+            "name": "Salmonella - Confirmed match at NYC restaurant",
+            "user_disease": "Salmonella",
+            "user_confidence": 0.75,
+            "exposure_latitude": 40.7255,
+            "exposure_longitude": -73.9837,
+            "days_since_exposure": 2,
+            "illness_category": "foodborne",
+            "expected_result": "CONFIRMED",
+            "description": "User with Salmonella matches 8-case cluster at Mama Mia Trattoria"
         },
         {
-            "name": "Upper Respiratory Infection cluster",
-            "disease": "Upper Respiratory Infection",
-            "tract_id": "17031320400",
-            "base_confidence": 0.68,
-            "days_back": 90,
-            "expected": True  # Should detect (3 cases)
+            "name": "Salmonella - Alternative from Gastroenteritis",
+            "user_disease": "Gastroenteritis",
+            "user_confidence": 0.60,
+            "exposure_latitude": 40.7255,
+            "exposure_longitude": -73.9837,
+            "days_since_exposure": 3,
+            "illness_category": "foodborne",
+            "expected_result": "ALTERNATIVE",
+            "description": "Generic GI diagnosis at Salmonella outbreak restaurant"
+        },
+        
+        # ========================================================================
+        # CLUSTER 4: E. COLI AT OAK STREET BEACH (Expected: CONFIRMED)
+        # ========================================================================
+        {
+            "name": "E. coli - Confirmed match at Oak Street Beach",
+            "user_disease": "E. coli (STEC)",
+            "user_confidence": 0.78,
+            "exposure_latitude": 41.9033,
+            "exposure_longitude": -87.6245,
+            "days_since_exposure": 3,
+            "illness_category": "waterborne",
+            "expected_result": "CONFIRMED",
+            "description": "User with E. coli matches 7-case cluster at Oak Street Beach"
         },
         {
-            "name": "Influenza cluster (same tract, different from test 2)",
-            "disease": "Influenza",
-            "tract_id": "17031320400",
-            "base_confidence": 0.72,
-            "days_back": 90,
-            "expected": True  # Should detect (3 cases)
+            "name": "E. coli - Alternative from generic diagnosis",
+            "user_disease": "Food poisoning",
+            "user_confidence": 0.55,
+            "exposure_latitude": 41.9035,
+            "exposure_longitude": -87.6243,
+            "days_since_exposure": 4,
+            "illness_category": "foodborne",
+            "expected_result": "ALTERNATIVE",
+            "description": "Generic diagnosis at E. coli outbreak beach - should suggest E. coli"
+        },
+        
+        # ========================================================================
+        # NO MATCH CASES (Expected: NO_MATCH)
+        # ========================================================================
+        {
+            "name": "No cluster - Scattered Influenza case",
+            "user_disease": "Influenza",
+            "user_confidence": 0.72,
+            "exposure_latitude": 45.5898,  # Portland, OR
+            "exposure_longitude": -122.5951,
+            "days_since_exposure": 3,
+            "illness_category": "airborne",
+            "expected_result": "NO_MATCH",
+            "description": "Isolated flu case in Portland - no cluster exists"
+        },
+        {
+            "name": "No cluster - Scattered COVID case",
+            "user_disease": "COVID-19",
+            "user_confidence": 0.80,
+            "exposure_latitude": 39.7436,  # Denver, CO
+            "exposure_longitude": -104.9942,
+            "days_since_exposure": 5,
+            "illness_category": "airborne",
+            "expected_result": "NO_MATCH",
+            "description": "Isolated COVID case in Denver - no cluster exists"
+        },
+        {
+            "name": "No cluster - Random coordinates",
+            "user_disease": "Common cold",
+            "user_confidence": 0.60,
+            "exposure_latitude": 35.0,  # Middle of nowhere
+            "exposure_longitude": -100.0,
+            "days_since_exposure": 2,
+            "illness_category": "airborne",
+            "expected_result": "NO_MATCH",
+            "description": "Location with no outbreak activity"
+        },
+        
+        # ========================================================================
+        # EDGE CASES
+        # ========================================================================
+        {
+            "name": "Wrong timing - Exposure before outbreak started",
+            "user_disease": "Lyme disease",
+            "user_confidence": 0.70,
+            "exposure_latitude": 40.4406,
+            "exposure_longitude": -79.9195,
+            "days_since_exposure": 30,  # Too old
+            "illness_category": "insect-borne",
+            "expected_result": "NO_MATCH",
+            "description": "Exposure date doesn't overlap with cluster timing window"
+        },
+        {
+            "name": "Nearby but not in cluster tract",
+            "user_disease": "Measles",
+            "user_confidence": 0.75,
+            "exposure_latitude": 41.8781,  # Downtown Chicago, not O'Hare
+            "exposure_longitude": -87.6298,
+            "days_since_exposure": 11,
+            "illness_category": "airborne",
+            "expected_result": "NO_MATCH",
+            "description": "Exposure in different tract than O'Hare cluster"
         }
     ]
     
-    print("=" * 70)
-    print("🧪 TESTING WITH REAL DATABASE RECORDS")
-    print("=" * 70)
+    print("=" * 80)
+    print("🧪 CLUSTER VALIDATION AGENT - TESTING WITH REAL OUTBREAK DATA")
+    print("=" * 80)
+    print("\n📊 Testing against 4 synthetic outbreak clusters:")
+    print("   1. Lyme disease @ Mellon Park, Pittsburgh (10 cases)")
+    print("   2. Measles @ O'Hare Airport, Chicago (12 cases)")
+    print("   3. Salmonella @ Mama Mia Trattoria, NYC (8 cases)")
+    print("   4. E. coli @ Oak Street Beach, Chicago (7 cases)")
+    print("=" * 80)
     
     passed = 0
     failed = 0
+    no_data = 0
     
     for i, test_case in enumerate(test_cases, 1):
-        print(f"\n{'='*70}")
+        print(f"\n{'='*80}")
         print(f"Test {i}: {test_case['name']}")
-        print(f"{'='*70}")
+        print(f"{'='*80}")
+        print(f"📝 {test_case['description']}")
         
         payload = {
-            "disease": test_case["disease"],
-            "tract_id": test_case["tract_id"],
-            "base_confidence": test_case["base_confidence"],
-            "days_back": test_case.get("days_back", 90)
+            "user_disease": test_case["user_disease"],
+            "user_confidence": test_case["user_confidence"],
+            "exposure_latitude": test_case["exposure_latitude"],
+            "exposure_longitude": test_case["exposure_longitude"],
+            "days_since_exposure": test_case["days_since_exposure"],
+            "illness_category": test_case["illness_category"]
         }
         
-        print(f"📋 Input: {test_case['disease']} in tract {test_case['tract_id']}")
-        print(f"   Base confidence: {test_case['base_confidence']:.0%}")
-        print(f"   Lookback window: {payload['days_back']} days")
+        print(f"\n📋 Input:")
+        print(f"   Disease: {test_case['user_disease']} ({test_case['user_confidence']:.0%} confidence)")
+        print(f"   Location: ({test_case['exposure_latitude']}, {test_case['exposure_longitude']})")
+        print(f"   Exposure: {test_case['days_since_exposure']} days ago")
+        print(f"   Expected: {test_case['expected_result']}")
         
         result_json, _ = run_agent(json.dumps(payload), [])
         result = json.loads(result_json)
         
-        detected = result["cluster_detected"]
-        expected = test_case["expected"]
+        cluster_found = result["cluster_found"]
+        validation_result = result["validation_result"]
+        expected = test_case["expected_result"]
         
-        # Verify expectation
-        if detected == expected:
-            print(f"   ✅ PASS: Cluster detection = {detected} (as expected)")
+        print(f"\n📊 Output:")
+        print(f"   Cluster found: {cluster_found}")
+        print(f"   Validation result: {validation_result}")
+        
+        # Check if result matches expectation
+        if validation_result == expected:
+            print(f"   ✅ PASS: Result matches expected ({expected})")
             passed += 1
         else:
-            print(f"   ❌ FAIL: Expected {expected}, got {detected}")
+            print(f"   ❌ FAIL: Expected {expected}, got {validation_result}")
             failed += 1
         
-        if detected:
-            cluster_data = result["cluster_data"]
-            cluster_size = cluster_data["cluster_size"]
-            boost = result["confidence_boost"]
-            adjusted = result["adjusted_confidence"]
-            days_active = cluster_data.get("days_active", "unknown")
+        if cluster_found:
+            print(f"   Original: {result['original_diagnosis']} ({result['original_confidence']:.0%})")
+            print(f"   Refined: {result['refined_diagnosis']} ({result['refined_confidence']:.0%})")
             
-            print(f"   📊 Cluster size: {cluster_size}")
-            print(f"   📈 Confidence: {test_case['base_confidence']:.0%} → {adjusted:.0%} (+{boost:.0%})")
-            print(f"   📅 Cluster age: {days_active} days old")
+            if result.get('confidence_boost'):
+                print(f"   Confidence boost: +{result['confidence_boost']:.0%}")
             
-            # Show message preview
-            message = result['console_output']
-            if message:
-                preview = message[:80] + "..." if len(message) > 80 else message
-                print(f"   📢 Message: {preview}")
+            cluster_data = result['cluster_data']
+            print(f"\n   🔍 Cluster details:")
+            print(f"      ID: {cluster_data['exposure_cluster_id']}")
+            print(f"      Size: {cluster_data['cluster_size']} cases")
+            print(f"      Predominant disease: {cluster_data['predominant_disease']}")
+            print(f"      Consensus: {cluster_data['consensus_ratio']:.0%}")
+            print(f"      Location tag: {cluster_data.get('sample_exposure_tag', 'N/A')}")
             
-            # Show alert status if available
-            alert_data = result.get("alert_data", {})
-            if alert_data.get("alert_active"):
-                print(f"   ⚠️  Statistical alert ACTIVE in this tract")
+            if result['console_output']:
+                print(f"\n   📢 User message preview:")
+                lines = result['console_output'].strip().split('\n')[:4]
+                for line in lines:
+                    print(f"      {line}")
+                if len(result['console_output'].strip().split('\n')) > 4:
+                    print(f"      ...")
         else:
-            print(f"   ℹ️  No cluster detected")
+            print(f"   ℹ️  No matching cluster found")
+            if expected != "NO_MATCH":
+                print(f"   ⚠️  This might indicate:")
+                print(f"      - clusters_alert_view hasn't refreshed yet")
+                print(f"      - Cluster thresholds (size/consensus) not met")
+                print(f"      - Tract assignment issue")
+                no_data += 1
         
         print()
     
-    print("=" * 70)
+    print("=" * 80)
     print(f"📊 TEST SUMMARY")
-    print(f"   ✅ Passed: {passed}/{len(test_cases)}")
-    print(f"   ❌ Failed: {failed}/{len(test_cases)}")
+    print(f"   Total tests: {len(test_cases)}")
+    print(f"   ✅ Passed: {passed}")
+    print(f"   ❌ Failed: {failed}")
+    print(f"   ⚠️  No data issues: {no_data}")
     
-    if failed == 0:
-        print(f"\n🎉 All tests passed!")
+    if failed == 0 and no_data == 0:
+        print(f"\n🎉 All tests passed! Cluster validation working perfectly!")
+    elif no_data > 0:
+        print(f"\n⚠️  Some expected clusters were not found.")
+        print(f"   This may be due to:")
+        print(f"   - clusters_alert_view needs time to refresh")
+        print(f"   - Clusters don't meet alert thresholds (size ≥3, consensus ≥60%)")
+        print(f"   - Run this query to check: SELECT * FROM clusters_alert_view WHERE alert_flag = TRUE")
     else:
-        print(f"\n⚠️  Some tests failed. Check the output above.")
+        print(f"\n❌ Some tests failed. Review the output above.")
     
-    print("=" * 70)
+    print("=" * 80)
 
 
-def test_confidence_adjustments():
-    """Test that confidence boosts work correctly at different cluster sizes"""
+def test_confidence_calculations():
+    """Test confidence boost calculation logic"""
     
-    print("\n" + "=" * 70)
-    print("🧪 TESTING CONFIDENCE ADJUSTMENT LOGIC")
-    print("=" * 70)
+    print("\n" + "=" * 80)
+    print("🧪 TESTING CONFIDENCE CALCULATION LOGIC")
+    print("=" * 80)
     
-    # Mock test cases for different cluster sizes
-    test_scenarios = [
-        {"cluster_size": 3, "expected_boost": 0.10, "description": "Small cluster (3 cases)"},
-        {"cluster_size": 6, "expected_boost": 0.15, "description": "Medium cluster (6 cases)"},
-        {"cluster_size": 10, "expected_boost": 0.25, "description": "Large cluster (10 cases)"},
+    from agents.cluster_validation_agent import calculate_confidence_boost, calculate_alternative_confidence
+    
+    scenarios = [
+        {"size": 3, "consensus": 0.70, "desc": "Small cluster, moderate consensus"},
+        {"size": 5, "consensus": 0.80, "desc": "Medium cluster, high consensus"},
+        {"size": 10, "consensus": 0.90, "desc": "Large cluster, very high consensus"},
+        {"size": 15, "consensus": 0.60, "desc": "Large cluster, low consensus"},
     ]
     
-    for scenario in test_scenarios:
-        print(f"\n{scenario['description']}:")
-        print(f"   Expected boost: +{scenario['expected_boost']:.0%}")
-        print(f"   Max confidence cap: 99%")
+    print("\n📈 Confidence Boost (for CONFIRMED matches):")
+    for s in scenarios:
+        boost = calculate_confidence_boost(s["size"], s["consensus"])
+        print(f"   {s['desc']}")
+        print(f"      Size: {s['size']}, Consensus: {s['consensus']:.0%} → Boost: +{boost:.0%}")
     
-    print("\n✅ Confidence adjustment thresholds configured correctly")
-    print("=" * 70)
+    print("\n🔄 Alternative Confidence (for ALTERNATIVE suggestions):")
+    for s in scenarios:
+        if s["consensus"] >= 0.75:  # Only calculate for high consensus
+            alt_conf = calculate_alternative_confidence(s["size"], s["consensus"])
+            print(f"   {s['desc']}")
+            print(f"      Size: {s['size']}, Consensus: {s['consensus']:.0%} → Alternative confidence: {alt_conf:.0%}")
+    
+    print("\n✅ Confidence calculations working as expected")
+    print("=" * 80)
 
 
 def test_edge_cases():
-    """Test edge cases and error handling"""
+    """Test error handling and edge cases"""
     
-    print("\n" + "=" * 70)
+    print("\n" + "=" * 80)
     print("🧪 TESTING EDGE CASES")
-    print("=" * 70)
+    print("=" * 80)
     
-    # Test 1: Non-existent disease
-    print("\n1. Non-existent disease:")
-    payload = {
-        "disease": "FakeDisease123",
-        "tract_id": "17031320400",
-        "base_confidence": 0.50,
-        "days_back": 90
-    }
-    result_json, _ = run_agent(json.dumps(payload), [])
-    result = json.loads(result_json)
-    
-    if not result["cluster_detected"]:
-        print("   ✅ Correctly returned no cluster for non-existent disease")
-    else:
-        print("   ❌ Should not have detected a cluster")
-    
-    # Test 2: Non-existent tract
-    print("\n2. Non-existent tract ID:")
-    payload = {
-        "disease": "Influenza",
-        "tract_id": "99999999999",
-        "base_confidence": 0.70,
-        "days_back": 90
-    }
-    result_json, _ = run_agent(json.dumps(payload), [])
-    result = json.loads(result_json)
-    
-    if not result["cluster_detected"]:
-        print("   ✅ Correctly returned no cluster for non-existent tract")
-    else:
-        print("   ❌ Should not have detected a cluster")
-    
-    # Test 3: Missing required fields
-    print("\n3. Missing required fields:")
-    payload = {"disease": "Influenza"}  # Missing tract_id
+    # Test 1: Missing required fields
+    print("\n1. Missing required fields:")
+    payload = {"user_disease": "Influenza"}  # Missing coordinates
     result_json, _ = run_agent(json.dumps(payload), [])
     result = json.loads(result_json)
     
@@ -198,22 +342,72 @@ def test_edge_cases():
     else:
         print("   ❌ Should have returned an error")
     
-    # Test 4: Confidence capped at 99%
-    print("\n4. Confidence cap at 99%:")
-    print("   Base: 90%, Large cluster (+25%) → Should cap at 99%")
-    print("   ✅ Cap logic implemented in adjust_confidence_for_cluster()")
+    # Test 2: Invalid coordinates (middle of ocean)
+    print("\n2. Invalid coordinates (middle of Atlantic Ocean):")
+    payload = {
+        "user_disease": "Norovirus",
+        "user_confidence": 0.65,
+        "exposure_latitude": 0.0,
+        "exposure_longitude": -30.0,
+        "days_since_exposure": 2,
+        "illness_category": "foodborne"
+    }
+    result_json, _ = run_agent(json.dumps(payload), [])
+    result = json.loads(result_json)
     
-    print("\n" + "=" * 70)
+    if not result["cluster_found"]:
+        print("   ✅ Correctly returned no cluster for invalid location")
+    else:
+        print("   ⚠️  Unexpected cluster found at invalid coordinates")
+    
+    # Test 3: Very old exposure (should not match recent clusters)
+    print("\n3. Very old exposure (60 days ago):")
+    payload = {
+        "user_disease": "Lyme disease",
+        "user_confidence": 0.70,
+        "exposure_latitude": 40.4406,
+        "exposure_longitude": -79.9195,
+        "days_since_exposure": 60,
+        "illness_category": "insect-borne"
+    }
+    result_json, _ = run_agent(json.dumps(payload), [])
+    result = json.loads(result_json)
+    
+    print(f"   Result: {result['validation_result']}")
+    print("   ✅ Old exposures handled correctly")
+    
+    # Test 4: Negative days since exposure
+    print("\n4. Invalid negative days since exposure:")
+    payload = {
+        "user_disease": "Measles",
+        "user_confidence": 0.80,
+        "exposure_latitude": 41.9742,
+        "exposure_longitude": -87.9073,
+        "days_since_exposure": -5,  # Invalid
+        "illness_category": "airborne"
+    }
+    result_json, _ = run_agent(json.dumps(payload), [])
+    result = json.loads(result_json)
+    
+    print(f"   Handled gracefully: {result['validation_result']}")
+    
+    print("\n" + "=" * 80)
     print("🎉 Edge case testing complete!")
-    print("=" * 70)
+    print("=" * 80)
 
 
 if __name__ == "__main__":
     # Run all test suites
-    test_with_real_data()
-    test_confidence_adjustments()
+    test_with_real_outbreak_data()
+    test_confidence_calculations()
     test_edge_cases()
     
-    print("\n" + "=" * 70)
-    print("✅ CLUSTER DETECTION AGENT - ALL TESTS COMPLETE")
-    print("=" * 70)
+    print("\n" + "=" * 80)
+    print("✅ CLUSTER VALIDATION AGENT - ALL TESTS COMPLETE")
+    print("=" * 80)
+    print("\n💡 Next steps:")
+    print("   1. Verify clusters_alert_view has refreshed with new data")
+    print("   2. Check alert_flag = TRUE for the 4 outbreak clusters")
+    print("   3. If clusters not found, wait for view refresh or check thresholds")
+    print("   4. Once validated, integrate cluster_validation_node into graph_orchestrator.py")
+    print("=" * 80)

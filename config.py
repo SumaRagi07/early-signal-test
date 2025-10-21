@@ -26,6 +26,7 @@ MODEL = "gemini-2.0-flash"
 # Alert system view references
 CLUSTERS_SPATIAL_VIEW = "adsp-34002-ip07-early-signal.alerts.clusters_spatial_view"
 ALERT_TRACTS_VIEW = "adsp-34002-ip07-early-signal.alerts.alert_tracts_view"
+CLUSTERS_ALERT_VIEW = "adsp-34002-ip07-early-signal.alerts.clusters_alert_view"
 
 # Load service account credentials
 credentials = service_account.Credentials.from_service_account_file(SA_KEY_PATH)
