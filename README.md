@@ -77,12 +77,14 @@ When a user opens the app, the chatbot:
 4. Offers care recommendations and guidance on when to seek medical help.
 
 <div align="center">
-  <img src="documents/images/chatbot_1.jpeg" width="180" alt="Alert system image 1">
-  <img src="documents/images/chatbot_2.jpeg" width="180" alt="Alert system image 2">
-  <img src="documents/images/chatbot_3.jpeg" width="180" alt="Alert system image 3">
-  <img src="documents/images/chatbot_4.jpeg" width="180" alt="Alert system image 4">
-  <img src="documents/images/chatbot_5.jpeg" width="180" alt="Alert system image 5">
+  <img src="documents/images/chatbot_1.jpeg" width="200" alt="Alert system image 1">
+  <img src="documents/images/chatbot_2.jpeg" width="200" alt="Alert system image 2">
+  <img src="documents/images/chatbot_3.jpeg" width="200" alt="Alert system image 3">
+  <br>
+  <img src="documents/images/chatbot_4.jpeg" width="200" alt="Alert system image 4">
+  <img src="documents/images/chatbot_5.jpeg" width="200" alt="Alert system image 5">
 </div>
+
 
 
 Each interaction contributes an anonymized record including symptoms, diagnosis, and geolocation to a secure data store. As more users participate, the system gains “collective wisdom,” i.e., when multiple nearby users report similar patterns, the model refines its diagnostic confidence and improves local accuracy.
@@ -151,8 +153,6 @@ Users currently located within or near the impacted tract receive a push alert a
 <div align="center">
   <img src="documents/images/dashboard_overview.jpeg" width="450" alt="Alert system image 1">
 </div>
-
-**Will add dashboard demo video here to show functionality in depth after final testing**
 
 The app’s dashboard transforms community data into clear, actionable visuals:  
 
