@@ -21,11 +21,12 @@ EarlySignal is an AI-powered mobile platform designed to crowdsource early indic
    - [Alert System — Detecting Emerging Outbreaks](#32--alert-system--detecting-emerging-outbreaks)
    - [Dashboards — Seeing the Signal](#33--dashboards--seeing-the-signal)
    - [Architecture Overview](#34--architecture-overview)
-4. [Market Fit and Potential](#4--market-fit-and-potential)
-5. [Future Works](#5--future-works)
-6. [Tools Used](#6-️-tools-used)
-7. [The Team Behind the App](#7--the-team-behind-the-app)
-8. [References & Acknowledgements](#8--references--acknowledgements)
+4. [Evaluation & Metrics](#4-evaluation-metrics)
+5. [Market Fit and Potential](#5--market-fit-and-potential)
+6. [Future Works](#5--future-works)
+7. [Tools Used](#6-️-tools-used)
+8. [The Team Behind the App](#7--the-team-behind-the-app)
+9. [References & Acknowledgements](#8--references--acknowledgements)
 
 ---
 
@@ -73,7 +74,16 @@ When a user opens the app, the chatbot:
 1. Collects key symptoms and their onset time in natural language.  
 2. Generates a preliminary diagnosis with a confidence estimate.  
 3. Asks follow-up questions about exposure location (where the illness may have been caught) and current location (where the user is now).  
-4. Offers care recommendations and guidance on when to seek medical help.  
+4. Offers care recommendations and guidance on when to seek medical help.
+
+<div align="center">
+  <img src="documents/images/chatbot_1.jpeg" width="180" alt="Alert system image 1">
+  <img src="documents/images/chatbot_2.jpeg" width="180" alt="Alert system image 2">
+  <img src="documents/images/chatbot_3.jpeg" width="180" alt="Alert system image 3">
+  <img src="documents/images/chatbot_4.jpeg" width="180" alt="Alert system image 4">
+  <img src="documents/images/chatbot_5.jpeg" width="180" alt="Alert system image 5">
+</div>
+
 
 Each interaction contributes an anonymized record including symptoms, diagnosis, and geolocation to a secure data store. As more users participate, the system gains “collective wisdom,” i.e., when multiple nearby users report similar patterns, the model refines its diagnostic confidence and improves local accuracy.
 
@@ -101,12 +111,13 @@ EarlySignal applies this idea by aggregating diagnoses and symptom reports acros
 
 This approach merges personalized AI care with community-level insight, bridging private experience and public health awareness.
 
-
-**METRICS WILL BE ADDED HERE**
-
 ---
 
 ### 3.2 🚨 Alert System — Detecting Emerging Outbreaks
+
+<div align="center">
+  <img src="documents/images/alert_system.jpeg" width="450" alt="Alert system image 1">
+</div>
 
 Every report from the chatbot feeds into a unified analytical pipeline hosted in *BigQuery*. The alert system identifies patterns of illness activity across neighborhoods and within localized clusters, combining both into one cohesive feed.
 
@@ -137,6 +148,12 @@ Users currently located within or near the impacted tract receive a push alert a
 
 ### 3.3 📊 Dashboards — Seeing the Signal
 
+<div align="center">
+  <img src="documents/images/dashboard_overview.jpeg" width="450" alt="Alert system image 1">
+</div>
+
+**Will add dashboard demo video here to show functionality in depth after final testing**
+
 The app’s dashboard transforms community data into clear, actionable visuals:  
 
 - **Heatmaps** highlight current and historical illness concentrations 
@@ -164,7 +181,14 @@ This stack demonstrates how consumer-grade devices and cloud AI can collaborate 
 
 ---
 
-## 4. 💰 Market Fit and Potential
+## 4. 📈 Evaluation Metrics <a id="4-evaluation-metrics"></a>
+
+**This section will include model performance metrics nd evaluation benchmarks once final testing is complete.**
+
+
+---
+
+## 5. 💰 Market Fit and Potential
 
 Traditional public health reporting is largely reactive, with data often released weekly or even biweekly.  
 EarlySignal shifts this paradigm toward community-rooted, real-time detection.  
@@ -196,7 +220,7 @@ As adoption grows, anonymized data could inform early-intervention strategies, g
 
 ---
 
-## 5. 🔮 Future Works
+## 6. 🔮 Future Works
 
 EarlySignal is an evolving platform. While the initial focus is to biild a dense peer-to-peer illness alert system for community welfare, next phases include:
 
@@ -210,7 +234,7 @@ Each step moves the system closer to a decentralized, democratized network for p
 
 ---
 
-## 6. ⚒️ Tools Used
+## 7. ⚒️ Tools Used
 
 | **Category** | **Tools & Frameworks** |
 |:--|:--|
@@ -226,7 +250,7 @@ Each step moves the system closer to a decentralized, democratized network for p
 
 ---
 
-## 7. 🧑‍🧑‍🧒‍🧒 The Team Behind the App
+## 8. 🧑‍🧑‍🧒‍🧒 The Team Behind the App
 
 <table>
   <tr>
@@ -251,7 +275,7 @@ Each step moves the system closer to a decentralized, democratized network for p
 
 ---
 
-## 8. 📖 References & Acknowledgements
+## 9. 📖 References & Acknowledgements
 <!-- Add citations here -->
 
 ---
