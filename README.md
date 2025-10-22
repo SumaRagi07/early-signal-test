@@ -85,7 +85,7 @@ When a user opens the app, the chatbot:
   <img src="documents/images/chatbot_5.jpeg" width="200" alt="Alert system image 5">
 </div>
 
-
+**NOTE: REPLACE WITH DEMO OF CHAT**
 
 Each interaction contributes an anonymized record including symptoms, diagnosis, and geolocation to a secure data store. As more users participate, the system gains “collective wisdom,” i.e., when multiple nearby users report similar patterns, the model refines its diagnostic confidence and improves local accuracy.
 
@@ -118,8 +118,9 @@ This approach merges personalized AI care with community-level insight, bridging
 ### 3.2 🚨 Alert System — Detecting Emerging Outbreaks
 
 <div align="center">
-  <img src="documents/images/alert_system.jpeg" width="450" alt="Alert system image 1">
+  <img src="documents/images/alert_system.jpeg" width="300" alt="Alert system image 1">
 </div>
+
 
 Every report from the chatbot feeds into a unified analytical pipeline hosted in *BigQuery*. The alert system identifies patterns of illness activity across neighborhoods and within localized clusters, combining both into one cohesive feed.
 
@@ -151,8 +152,11 @@ Users currently located within or near the impacted tract receive a push alert a
 ### 3.3 📊 Dashboards — Seeing the Signal
 
 <div align="center">
-  <img src="documents/images/dashboard_overview.jpeg" width="450" alt="Alert system image 1">
+  <img src="documents/images/dashboard_overview.jpeg" width="300" alt="Alert system image 1">
 </div>
+
+
+**NOTE: DEMO OF DASHBOARD SHOWING FUNCTIONALITY TO BE ADDED**
 
 The app’s dashboard transforms community data into clear, actionable visuals:  
 
