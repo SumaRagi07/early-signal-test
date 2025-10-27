@@ -49,11 +49,11 @@ def geopoint_to_tract_id(latitude: float, longitude: float) -> str:
         if results:
             return results[0].full_tract_id
         else:
-            print(f"âš ï¸  No tract found for coordinates ({latitude}, {longitude})")
+            print(f"❌  No tract found for coordinates ({latitude}, {longitude})")
             return None
             
     except Exception as e:
-        print(f"âŒ Error converting geopoint to tract: {e}")
+        print(f"❌ Error converting geopoint to tract: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -99,12 +99,12 @@ def get_adjacent_tracts(user_tract_id: str) -> List[str]:
         results = list(query_job.result())
         
         adjacent_tracts = [row.tract_id for row in results]
-        print(f"   ðŸ—ºï¸  Found {len(adjacent_tracts)} adjacent/nearby tracts")
+        print(f"   📍  Found {len(adjacent_tracts)} adjacent/nearby tracts")
         
         return adjacent_tracts
         
     except Exception as e:
-        print(f"âŒ Error getting adjacent tracts: {e}")
+        print(f"❔ Error getting adjacent tracts: {e}")
         # Fallback: return just the original tract
         return [user_tract_id]
 
@@ -142,22 +142,22 @@ def query_matching_cluster(
     if not user_tract_id:
         return {}
     
-    print(f"   ðŸ“ User tract: {user_tract_id}")
+    print(f"   📍 User tract: {user_tract_id}")
     
     # Step 2: Get adjacent tracts for fuzzy matching
     adjacent_tracts = get_adjacent_tracts(user_tract_id)
     
     if not adjacent_tracts:
-        print(f"   âš ï¸  Could not determine adjacent tracts, using exact match only")
+        print(f"   ❔  Could not determine adjacent tracts, using exact match only")
         adjacent_tracts = [user_tract_id]
     
     # Step 3: Calculate user's exposure date
     user_exposure_date = datetime.now() - timedelta(days=days_since_exposure)
     
     # CRITICAL DEBUG: Print temporal calculations
-    print(f"   ðŸ• User exposure date: {user_exposure_date.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"   ðŸ• Days since exposure: {days_since_exposure}")
-    print(f"   ðŸ• Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   📅 User exposure date: {user_exposure_date.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   ⏳ Days since exposure: {days_since_exposure}")
+    print(f"   🕑 Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Step 4: Build dynamic WHERE clause for tract matching
     # Check if ANY of the user's adjacent tracts appear in the cluster's tract list
@@ -257,9 +257,9 @@ def query_matching_cluster(
         results = list(query_job.result())
         
         if not results:
-            print(f"   â„¹ï¸  No matching alert clusters found in {len(adjacent_tracts)} tract(s)")
+            print(f"   No matching alert clusters found in {len(adjacent_tracts)} tract(s)")
             # DEBUG: Print why no match
-            print(f"   â„¹ï¸  Searched for clusters with:")
+            print(f"  🔍 Searched for clusters with:")
             print(f"      - Spatial: {len(adjacent_tracts)} tracts")
             print(f"      - Temporal: exposure date {user_exposure_date.strftime('%Y-%m-%d')}")
             print(f"      - Within 30 days of now")
@@ -268,8 +268,8 @@ def query_matching_cluster(
         row = results[0]
         
         # DEBUG: Print match details
-        print(f"   âœ… Matched via adjacent tract expansion")
-        print(f"   âœ… Cluster temporal match:")
+        print(f"   ✅ Matched via adjacent tract expansion")
+        print(f"   Cluster temporal match:")
         print(f"      - First report: {row.first_report_ts.strftime('%Y-%m-%d %H:%M')}")
         print(f"      - Last report:  {row.last_report_ts.strftime('%Y-%m-%d %H:%M')}")
         print(f"      - User exposure: {user_exposure_date.strftime('%Y-%m-%d %H:%M')}")
@@ -300,7 +300,7 @@ def query_matching_cluster(
         }
         
     except Exception as e:
-        print(f"âŒ Error querying cluster alerts: {e}")
+        print(f"❌ Error querying cluster alerts: {e}")
         import traceback
         traceback.print_exc()
         return {}
@@ -536,7 +536,7 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     location = sample_tag.replace("_", " ").title() if sample_tag else "this location"
     
     if result_type == "CONFIRMED":
-        return f"""âœ… OUTBREAK CONFIRMATION
+        return f"""✅ OUTBREAK CONFIRMATION
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
@@ -551,7 +551,7 @@ Based on this strong outbreak pattern, I'm increasing my confidence in this diag
         else:
             category_note = " (note: different illness categories)"
             
-        return f"""ðŸ©º ALTERNATIVE DIAGNOSIS SUGGESTED
+        return f"""🩺 ALTERNATIVE DIAGNOSIS SUGGESTED
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
@@ -561,7 +561,7 @@ Please discuss this finding with your healthcare provider.
 """
     
     elif result_type == "WEAK_MATCH":
-        return f"""â„¹ï¸ CLUSTER INFORMATION
+        return f"""ℹ️ CLUSTER INFORMATION
 
 We've detected {cluster_size} illness reports from your reported exposure location.
 
@@ -570,7 +570,7 @@ Your diagnosis remains unchanged, but we're flagging this cluster activity for y
 """
     
     else:  # LOW_CONSENSUS
-        return f"""ðŸ“ CLUSTER DETECTED
+        return f"""ℹ️ CLUSTER DETECTED
 
 {cluster_size} people exposed at your reported exposure location have reported varied illnesses.
 
@@ -634,7 +634,7 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
             "validation_result": "ERROR"
         }), history
     
-    print(f"ðŸ” Validating diagnosis: {user_disease} ({user_confidence:.0%} confidence)")
+    print(f"Validating diagnosis: {user_disease} ({user_confidence:.0%} confidence)")
     print(f"   Exposure: ({exposure_lat}, {exposure_lon}), {days_since_exposure} days ago")
     print(f"   User category: {illness_category}")
     
@@ -650,7 +650,7 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     cluster_found = bool(cluster_data)
     
     if cluster_found:
-        print(f"âœ… Cluster found: {cluster_data['exposure_cluster_id']}")
+        print(f"✅ Cluster found: {cluster_data['exposure_cluster_id']}")
         print(f"   Size: {cluster_data['cluster_size']}, Predominant: {cluster_data['predominant_disease']}")
         print(f"   Consensus: {cluster_data['consensus_ratio']:.0%}")
         print(f"   Cluster category: {cluster_data.get('predominant_category', 'unknown')}")
