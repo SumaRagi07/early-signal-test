@@ -314,7 +314,7 @@ def validate_diagnosis(
     """
     Compare user's diagnosis against cluster's predominant_disease.
     
-    FIXED: Added safe handling for missing predominant_category field.
+    FIXED: Added original_confidence to all return statements for proper display.
     
     Returns validation result with refined confidence and messaging.
     
@@ -332,6 +332,7 @@ def validate_diagnosis(
             "validation_result": "NO_MATCH",
             "refined_confidence": user_confidence,
             "refined_diagnosis": user_disease,
+            "original_confidence": user_confidence,  # ✅ ADDED
             "reasoning": "No active outbreak clusters match your exposure location and timing."
         }
     
@@ -354,6 +355,7 @@ def validate_diagnosis(
             "refined_confidence": refined_confidence,
             "confidence_boost": boost,
             "original_diagnosis": user_disease,
+            "original_confidence": user_confidence,  # ✅ ADDED
             "cluster_predominant_disease": predominant,
             "reasoning": (
                 f"Your {user_disease} diagnosis matches the predominant disease "
@@ -384,6 +386,7 @@ def validate_diagnosis(
                 "refined_diagnosis": predominant,
                 "refined_confidence": alt_confidence,
                 "original_diagnosis": user_disease,
+                "original_confidence": user_confidence,  # ✅ ADDED
                 "cluster_predominant_disease": predominant,
                 "category_match": category_match,
                 "reasoning": (
@@ -401,6 +404,7 @@ def validate_diagnosis(
             "validation_result": "WEAK_MATCH",
             "refined_diagnosis": user_disease,
             "refined_confidence": user_confidence,
+            "original_confidence": user_confidence,  # ✅ ADDED
             "cluster_predominant_disease": predominant,
             "reasoning": (
                 f"A cluster of {cluster_size} cases exists at your exposure location, "
@@ -414,6 +418,7 @@ def validate_diagnosis(
         "validation_result": "LOW_CONSENSUS",
         "refined_diagnosis": user_disease,
         "refined_confidence": user_confidence,
+        "original_confidence": user_confidence,  # ✅ ADDED
         "cluster_predominant_disease": predominant,
         "reasoning": (
             f"Multiple illnesses reported at your exposure location "
@@ -516,6 +521,8 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     """
     Generate user-facing message about cluster validation result.
     
+    FIXED: Now uses original_confidence from validation_result instead of defaulting to 0.
+    
     Args:
         validation_result: Output from validate_diagnosis()
         cluster_data: Cluster data from query_matching_cluster()
@@ -536,12 +543,16 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     location = sample_tag.replace("_", " ").title() if sample_tag else "this location"
     
     if result_type == "CONFIRMED":
+        # ✅ FIX: Use original_confidence from validation_result (now guaranteed to exist)
+        original_conf_pct = int(validation_result['original_confidence'] * 100)
+        refined_conf_pct = int(validation_result['refined_confidence'] * 100)
+        
         return f"""✅ OUTBREAK CONFIRMATION
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
 Your diagnosis of {validation_result['refined_diagnosis']} matches the outbreak pattern we're tracking - {consensus:.0%} of cases at this location have been diagnosed with the same condition. 
-Based on this strong outbreak pattern, I'm increasing my confidence in this diagnosis from {validation_result.get('original_confidence', 0)*100:.0f}% to {validation_result['refined_confidence']*100:.0f}%.
+Based on this strong outbreak pattern, I'm increasing my confidence in this diagnosis from {original_conf_pct}% to {refined_conf_pct}%.
 """
     
     elif result_type == "ALTERNATIVE":
@@ -550,13 +561,15 @@ Based on this strong outbreak pattern, I'm increasing my confidence in this diag
             category_note = " (both in the same illness category)"
         else:
             category_note = " (note: different illness categories)"
+        
+        refined_conf_pct = int(validation_result['refined_confidence'] * 100)
             
         return f"""🩺 ALTERNATIVE DIAGNOSIS SUGGESTED
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
 While your symptoms initially suggested {validation_result['original_diagnosis']}, {consensus:.0%} of people exposed at this location were diagnosed with {validation_result['refined_diagnosis']}{category_note}. 
-Given this outbreak pattern, I'm suggesting {validation_result['refined_diagnosis']} as an alternative diagnosis with {validation_result['refined_confidence']*100:.0f}% confidence.
+Given this outbreak pattern, I'm suggesting {validation_result['refined_diagnosis']} as an alternative diagnosis with {refined_conf_pct}% confidence.
 Please discuss this finding with your healthcare provider.
 """
     
@@ -663,6 +676,8 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
         cluster_data
     )
     
+    print(f"✅ Cluster validation: {validation_result['validation_result']}")
+    
     # Format user message
     console_output = format_cluster_alert(validation_result, cluster_data) if cluster_found else ""
     
@@ -679,5 +694,7 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
         "reasoning": validation_result["reasoning"],
         "console_output": console_output
     }
+    
+    print(f"📤 Full result object: {json.dumps(result, indent=2)}")
     
     return json.dumps(result, indent=2), history
