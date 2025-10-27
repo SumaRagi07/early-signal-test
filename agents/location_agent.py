@@ -22,7 +22,7 @@ Follow these STRICT rules:
    - Extract just the location (e.g., "I'm in Chicago" → "Chicago")
    - Ask ONE follow-up: "Could you specify a venue name, landmark, neighborhood, cross-street, or address?"   
 
-2. Classify the “location_category” as one of:
+2. Classify the "location_category" as one of:
    - `"urban"` for cities and dense metro areas  
    - `"suburban"` for residential outskirts and towns  
    - `"rural"` for countryside or sparsely populated areas  
@@ -43,6 +43,17 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     except Exception:
         data = None
 
+    # Check if location was already provided via GPS
+    if data and data.get("skip_location_questions"):
+        # Location already set in orchestrator, just return it
+        return json.dumps({
+            "current_location_name": data.get("current_location_name"),
+            "current_latitude": data.get("current_latitude"),
+            "current_longitude": data.get("current_longitude"),
+            "location_category": data.get("location_category") or "urban"
+        }), history
+    
+    # Ask for location if not provided
     if not user_msg or (data and data.get("awaiting_field") == "city_state"):
         return json.dumps({
             "awaiting_field": "city_state",
@@ -65,11 +76,12 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
             and location_data.get("current_location_name")
             and location_data.get("location_category")
         ):
-            loc = location_data["current_location_name"]
+            loc = full_location  # FIXED: Use user's combined input instead of LLM's simplified output
             try:
                 lat, lon = geocode_location(loc)
             except Exception:
                 lat = lon = None
+            location_data["current_location_name"] = full_location
             location_data["current_latitude"] = lat
             location_data["current_longitude"] = lon
             return json.dumps(location_data), history

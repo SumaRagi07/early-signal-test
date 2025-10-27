@@ -9,7 +9,7 @@ from config import bq_client, PROJECT_ID
 AGENT_NAME = 'cluster_validation_agent'
 
 # Reference to the new alert clusters view
-CLUSTERS_ALERT_VIEW = f"{PROJECT_ID}.alerts.clusters_alert_view"
+CLUSTERS_ALERT_VIEW = f"{PROJECT_ID}.alerts.test_clusters_alert_view"
 TRACTS_TABLE = f"{PROJECT_ID}.tracts.all_tracts"
 
 def geopoint_to_tract_id(latitude: float, longitude: float) -> str:
@@ -49,11 +49,11 @@ def geopoint_to_tract_id(latitude: float, longitude: float) -> str:
         if results:
             return results[0].full_tract_id
         else:
-            print(f"⚠️  No tract found for coordinates ({latitude}, {longitude})")
+            print(f"âš ï¸  No tract found for coordinates ({latitude}, {longitude})")
             return None
             
     except Exception as e:
-        print(f"❌ Error converting geopoint to tract: {e}")
+        print(f"âŒ Error converting geopoint to tract: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -99,12 +99,12 @@ def get_adjacent_tracts(user_tract_id: str) -> List[str]:
         results = list(query_job.result())
         
         adjacent_tracts = [row.tract_id for row in results]
-        print(f"   🗺️  Found {len(adjacent_tracts)} adjacent/nearby tracts")
+        print(f"   ðŸ—ºï¸  Found {len(adjacent_tracts)} adjacent/nearby tracts")
         
         return adjacent_tracts
         
     except Exception as e:
-        print(f"❌ Error getting adjacent tracts: {e}")
+        print(f"âŒ Error getting adjacent tracts: {e}")
         # Fallback: return just the original tract
         return [user_tract_id]
 
@@ -119,11 +119,12 @@ def query_matching_cluster(
     Query clusters_alert_view to find active alert clusters matching user's exposure.
     
     UPDATED: Now uses adjacent tract matching for better geocoding tolerance.
+    FIXED: Improved temporal logic to handle exposure before/during/after cluster activity.
     
     Matching criteria:
     1. Spatial: User's exposure tract OR adjacent tracts are in cluster's distinct_tract_ids
-    2. Temporal: User's exposure timing overlaps with cluster activity window
-    3. Alert threshold: Only clusters with alert_flag = TRUE
+    2. Temporal: User's exposure timing overlaps with cluster activity window (EXPANDED)
+    3. Alert threshold: clusters with alert_flag = TRUE or FALSE
     
     Args:
         exposure_lat: User's exposure location latitude
@@ -141,17 +142,22 @@ def query_matching_cluster(
     if not user_tract_id:
         return {}
     
-    print(f"   📍 User tract: {user_tract_id}")
+    print(f"   ðŸ“ User tract: {user_tract_id}")
     
     # Step 2: Get adjacent tracts for fuzzy matching
     adjacent_tracts = get_adjacent_tracts(user_tract_id)
     
     if not adjacent_tracts:
-        print(f"   ⚠️  Could not determine adjacent tracts, using exact match only")
+        print(f"   âš ï¸  Could not determine adjacent tracts, using exact match only")
         adjacent_tracts = [user_tract_id]
     
     # Step 3: Calculate user's exposure date
     user_exposure_date = datetime.now() - timedelta(days=days_since_exposure)
+    
+    # CRITICAL DEBUG: Print temporal calculations
+    print(f"   ðŸ• User exposure date: {user_exposure_date.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   ðŸ• Days since exposure: {days_since_exposure}")
+    print(f"   ðŸ• Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Step 4: Build dynamic WHERE clause for tract matching
     # Check if ANY of the user's adjacent tracts appear in the cluster's tract list
@@ -162,6 +168,7 @@ def query_matching_cluster(
     tract_where_clause = " OR ".join(tract_conditions)
     
     # Step 5: Query for matching alert clusters
+    # FIXED TEMPORAL LOGIC: Much more permissive to catch active clusters
     query = f"""
     SELECT 
     exposure_cluster_id,
@@ -178,38 +185,54 @@ def query_matching_cluster(
     predominant_disease_count,
     disease_count,
     consensus_ratio,
+    predominant_category,
     size_flag,
     consensus_flag,
     alert_flag,
-    TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), last_report_ts, DAY) as days_since_last_report
+    TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), last_report_ts, DAY) as days_since_last_report,
+    TIMESTAMP_DIFF(@user_exposure_date, first_report_ts, DAY) as days_exposure_vs_first_report,
+    TIMESTAMP_DIFF(@user_exposure_date, last_report_ts, DAY) as days_exposure_vs_last_report
     FROM `{CLUSTERS_ALERT_VIEW}`
     WHERE 
-    -- Only active alert clusters
-    alert_flag = TRUE
+    -- Only sizeable alert clusters
+    size_flag = TRUE
     
+    -- Only clusters with meaningful consensus
+    AND consensus_ratio >= 0.30
+
     -- Spatial match: user's tract OR adjacent tracts are in the cluster
     AND ({tract_where_clause})
     
-    -- Temporal match: cluster is recent (last report within 21 days for better coverage)
-    AND TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), last_report_ts, DAY) <= 21
+    -- FIXED TEMPORAL LOGIC: Much broader window to catch all relevant cases
+    -- Cluster must be "recent" (last activity within 30 days)
+    AND TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), last_report_ts, DAY) <= 30
     
-    -- User's exposure overlaps with cluster period (WITH PADDING)
+    -- User's exposure must be temporally relevant to the cluster
     AND (
-        -- User exposed during cluster activity (±1 day padding to handle boundary cases)
+        -- CASE 1: User exposed DURING cluster activity window (with generous padding)
+        -- If cluster spans Oct 20-25, catch exposures from Oct 18-28
         TIMESTAMP(@user_exposure_date) BETWEEN 
-        TIMESTAMP_SUB(first_report_ts, INTERVAL 1 DAY) AND 
-        TIMESTAMP_ADD(last_report_ts, INTERVAL 2 DAY)
+        TIMESTAMP_SUB(first_report_ts, INTERVAL 3 DAY) AND 
+        TIMESTAMP_ADD(last_report_ts, INTERVAL 3 DAY)
         
-        -- OR user exposed up to 10 days before first report (incubation period)
-        OR TIMESTAMP_DIFF(first_report_ts, TIMESTAMP(@user_exposure_date), DAY) BETWEEN 0 AND 10
-        
-        -- OR cluster ended recently and user exposed around that time
+        -- CASE 2: User exposed BEFORE cluster started (incubation period)
+        -- If exposure was Oct 15 and cluster started Oct 20, that's 5 days - within incubation
+        -- Allow up to 14 days before first report (covers most incubation periods)
         OR (
-        TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), last_report_ts, DAY) <= 14
-        AND ABS(TIMESTAMP_DIFF(last_report_ts, TIMESTAMP(@user_exposure_date), DAY)) <= 3
+            TIMESTAMP(@user_exposure_date) < first_report_ts
+            AND TIMESTAMP_DIFF(first_report_ts, TIMESTAMP(@user_exposure_date), DAY) <= 14
+        )
+        
+        -- CASE 3: User exposed SHORTLY AFTER cluster peak (recent exposure at still-active site)
+        -- If cluster ended Oct 25 and exposure was Oct 27, still relevant
+        OR (
+            TIMESTAMP(@user_exposure_date) > last_report_ts
+            AND TIMESTAMP_DIFF(TIMESTAMP(@user_exposure_date), last_report_ts, DAY) <= 5
         )
     )
     ORDER BY 
+    -- Prioritize category match
+    CASE WHEN predominant_category = @user_illness_category THEN 1 ELSE 2 END,
     consensus_ratio DESC,
     cluster_size DESC,
     last_report_ts DESC
@@ -219,6 +242,7 @@ def query_matching_cluster(
     # Build query parameters dynamically for each adjacent tract
     query_parameters = [
         bigquery.ScalarQueryParameter("user_exposure_date", "TIMESTAMP", user_exposure_date),
+        bigquery.ScalarQueryParameter("user_illness_category", "STRING", illness_category or "other"),
     ]
     
     for i, tract in enumerate(adjacent_tracts):
@@ -233,13 +257,26 @@ def query_matching_cluster(
         results = list(query_job.result())
         
         if not results:
-            print(f"   ℹ️  No matching alert clusters found in {len(adjacent_tracts)} tract(s)")
+            print(f"   â„¹ï¸  No matching alert clusters found in {len(adjacent_tracts)} tract(s)")
+            # DEBUG: Print why no match
+            print(f"   â„¹ï¸  Searched for clusters with:")
+            print(f"      - Spatial: {len(adjacent_tracts)} tracts")
+            print(f"      - Temporal: exposure date {user_exposure_date.strftime('%Y-%m-%d')}")
+            print(f"      - Within 30 days of now")
             return {}
         
         row = results[0]
         
-        print(f"   ✅ Matched via adjacent tract expansion")
+        # DEBUG: Print match details
+        print(f"   âœ… Matched via adjacent tract expansion")
+        print(f"   âœ… Cluster temporal match:")
+        print(f"      - First report: {row.first_report_ts.strftime('%Y-%m-%d %H:%M')}")
+        print(f"      - Last report:  {row.last_report_ts.strftime('%Y-%m-%d %H:%M')}")
+        print(f"      - User exposure: {user_exposure_date.strftime('%Y-%m-%d %H:%M')}")
+        print(f"      - Days exposure vs first: {row.days_exposure_vs_first_report}")
+        print(f"      - Days exposure vs last:  {row.days_exposure_vs_last_report}")
         
+        # FIXED: Use .get() for optional fields with safe defaults
         return {
             "exposure_cluster_id": row.exposure_cluster_id,
             "cluster_spatial_id": row.cluster_spatial_id,
@@ -255,6 +292,7 @@ def query_matching_cluster(
             "predominant_disease_count": row.predominant_disease_count,
             "disease_count": row.disease_count,
             "consensus_ratio": float(row.consensus_ratio),
+            "predominant_category": getattr(row, "predominant_category", None) or "other",  # FIXED
             "size_flag": row.size_flag,
             "consensus_flag": row.consensus_flag,
             "alert_flag": row.alert_flag,
@@ -262,7 +300,7 @@ def query_matching_cluster(
         }
         
     except Exception as e:
-        print(f"❌ Error querying cluster alerts: {e}")
+        print(f"âŒ Error querying cluster alerts: {e}")
         import traceback
         traceback.print_exc()
         return {}
@@ -270,16 +308,20 @@ def query_matching_cluster(
 def validate_diagnosis(
     user_disease: str,
     user_confidence: float,
+    user_illness_category: str,
     cluster_data: Dict
 ) -> Dict:
     """
     Compare user's diagnosis against cluster's predominant_disease.
+    
+    FIXED: Added safe handling for missing predominant_category field.
     
     Returns validation result with refined confidence and messaging.
     
     Args:
         user_disease: Disease diagnosed by diagnostic agent
         user_confidence: Original confidence from diagnostic agent
+        user_illness_category: User's diagnosis illness category
         cluster_data: Cluster data from query_matching_cluster()
     
     Returns:
@@ -297,6 +339,9 @@ def validate_diagnosis(
     consensus = cluster_data["consensus_ratio"]
     cluster_size = cluster_data["cluster_size"]
     
+    # FIXED: Safe access to predominant_category with default
+    cluster_category = cluster_data.get("predominant_category", "other")
+    
     # Case 1: CONFIRMED - Same disease, boost confidence
     if user_disease == predominant:
         # Calculate confidence boost based on cluster strength
@@ -305,125 +350,167 @@ def validate_diagnosis(
         
         return {
             "validation_result": "CONFIRMED",
-            "refined_confidence": refined_confidence,
             "refined_diagnosis": user_disease,
-            "original_confidence": user_confidence,  # ADD THIS LINE
+            "refined_confidence": refined_confidence,
             "confidence_boost": boost,
-            "reasoning": (
-                f"Your diagnosis matches an active outbreak cluster of {cluster_size} cases "
-                f"with {consensus:.0%} consensus. This strongly supports your diagnosis."
-            )
-        }
-    
-    # Case 2: ALTERNATIVE - Strong consensus on different disease (≥75%)
-    elif consensus >= 0.75:
-        # High consensus suggests the cluster diagnosis might be more accurate
-        alternative_confidence = calculate_alternative_confidence(cluster_size, consensus)
-        
-        return {
-            "validation_result": "ALTERNATIVE",
-            "refined_confidence": alternative_confidence,
-            "refined_diagnosis": predominant,
             "original_diagnosis": user_disease,
-            "original_confidence": user_confidence,
+            "cluster_predominant_disease": predominant,
             "reasoning": (
-                f"While your symptoms suggest {user_disease}, {cluster_size} people exposed "
-                f"at the same location were diagnosed with {predominant} ({consensus:.0%} consensus). "
-                f"Consider discussing this with your healthcare provider."
+                f"Your {user_disease} diagnosis matches the predominant disease "
+                f"({predominant}) in an active outbreak cluster at your exposure location. "
+                f"Cluster has {cluster_size} cases with {consensus:.0%} consensus. "
+                f"Confidence increased from {user_confidence:.0%} to {refined_confidence:.0%}."
             )
         }
     
-    # Case 3: WEAK_MATCH - Cluster exists but low consensus (60-74%)
-    elif consensus >= 0.60:
-        # Acknowledge cluster but don't override diagnosis
+    # Case 2: ALTERNATIVE - Different disease, cluster suggests different diagnosis
+    # UPDATED: Now considers illness_category matching
+    elif consensus >= 0.60:  # Only suggest alternative if strong cluster evidence
+        alt_confidence = calculate_alternative_confidence(
+            cluster_size, 
+            consensus,
+            user_illness_category,
+            cluster_category
+        )
+        
+        # Determine if we should suggest the alternative
+        # Lower threshold if same category, higher if different
+        category_match = (user_illness_category == cluster_category)
+        confidence_threshold = 0.50 if category_match else 0.45
+        
+        if alt_confidence >= confidence_threshold:
+            return {
+                "validation_result": "ALTERNATIVE",
+                "refined_diagnosis": predominant,
+                "refined_confidence": alt_confidence,
+                "original_diagnosis": user_disease,
+                "cluster_predominant_disease": predominant,
+                "category_match": category_match,
+                "reasoning": (
+                    f"Your symptoms suggested {user_disease} ({user_illness_category}), "
+                    f"but {consensus:.0%} of {cluster_size} cases at this location were diagnosed with "
+                    f"{predominant} ({cluster_category}). "
+                    f"{'Category match suggests' if category_match else 'Despite category difference, strong cluster evidence suggests'} "
+                    f"considering {predominant} as alternative diagnosis with {alt_confidence:.0%} confidence."
+                )
+            }
+    
+    # Case 3: WEAK_MATCH - User's disease is plausible but not predominant
+    if consensus < 0.60:
         return {
             "validation_result": "WEAK_MATCH",
-            "refined_confidence": user_confidence,
             "refined_diagnosis": user_disease,
+            "refined_confidence": user_confidence,
             "cluster_predominant_disease": predominant,
-            "cluster_consensus": consensus,
             "reasoning": (
-                f"Your exposure location matches a cluster of {cluster_size} cases with varied diagnoses. "
-                f"Most common was {predominant} ({consensus:.0%}), but this doesn't strongly contradict "
-                f"your {user_disease} diagnosis."
+                f"A cluster of {cluster_size} cases exists at your exposure location, "
+                f"but diagnoses vary. Most common is {predominant} ({consensus:.0%}), "
+                f"though your {user_disease} diagnosis is also plausible for this location."
             )
         }
     
-    # Case 4: LOW_CONSENSUS - Cluster too diverse to be informative
-    else:
-        return {
-            "validation_result": "LOW_CONSENSUS",
-            "refined_confidence": user_confidence,
-            "refined_diagnosis": user_disease,
-            "reasoning": (
-                f"A cluster of {cluster_size} cases exists at your exposure location, but diagnoses "
-                f"vary widely (consensus: {consensus:.0%}). Your {user_disease} diagnosis stands."
-            )
-        }
+    # Case 4: LOW_CONSENSUS - Cluster exists but too diverse
+    return {
+        "validation_result": "LOW_CONSENSUS",
+        "refined_diagnosis": user_disease,
+        "refined_confidence": user_confidence,
+        "cluster_predominant_disease": predominant,
+        "reasoning": (
+            f"Multiple illnesses reported at your exposure location "
+            f"({cluster_size} cases, {predominant} most common at {consensus:.0%}). "
+            f"Unable to confirm or refute your {user_disease} diagnosis based on cluster data."
+        )
+    }
 
 
 def calculate_confidence_boost(cluster_size: int, consensus_ratio: float) -> float:
     """
-    Calculate confidence boost based on cluster strength.
+    Calculate confidence boost for CONFIRMED diagnosis based on cluster strength.
     
     Args:
         cluster_size: Number of cases in cluster
         consensus_ratio: Fraction agreeing on predominant disease
     
     Returns:
-        Confidence boost amount (0.0 to 0.35)
+        Confidence boost (0.10 to 0.30)
     """
     # Base boost from cluster size
-    if cluster_size >= 10:
-        size_boost = 0.25
-    elif cluster_size >= 5:
+    if cluster_size >= 20:
+        size_boost = 0.20
+    elif cluster_size >= 10:
         size_boost = 0.15
-    elif cluster_size >= 3:
-        size_boost = 0.10
+    elif cluster_size >= 5:
+        size_boost = 0.12
     else:
-        size_boost = 0.0
+        size_boost = 0.10
     
-    # Additional boost from consensus strength
-    if consensus_ratio >= 0.85:  # Very high consensus
+    # Additional boost from consensus
+    if consensus_ratio >= 0.90:
         consensus_boost = 0.10
-    elif consensus_ratio >= 0.75:  # High consensus
+    elif consensus_ratio >= 0.80:
+        consensus_boost = 0.07
+    elif consensus_ratio >= 0.70:
         consensus_boost = 0.05
     else:
-        consensus_boost = 0.0
+        consensus_boost = 0.03
     
-    return size_boost + consensus_boost
+    total_boost = size_boost + consensus_boost
+    return min(total_boost, 0.30)  # Cap at 30% boost
 
 
-def calculate_alternative_confidence(cluster_size: int, consensus_ratio: float) -> float:
+def calculate_alternative_confidence(
+        cluster_size: int, 
+        consensus_ratio: float,
+        user_illness_category: str,
+        cluster_category: str
+) -> float:
     """
     Calculate confidence for alternative diagnosis suggested by cluster.
     
-    Uses cluster metrics to determine how confident we should be in the
-    predominant_disease rather than the user's original diagnosis.
+    UPDATED: Now considers illness category matching.
+    
+    Conservative approach that considers:
+    1. Lower base confidence than CONFIRMED cases
+    2. Illness category matching (airborne vs foodborne)
+    3. Strong cluster evidence required
     
     Args:
         cluster_size: Number of cases in cluster
         consensus_ratio: Fraction agreeing on predominant disease
+        user_illness_category: User's diagnosis illness category
+        cluster_category: Cluster's predominant illness category
     
     Returns:
-        Confidence score for alternative diagnosis (0.70 to 0.90)
+        Confidence score for alternative diagnosis (0.40 to 0.85)
     """
-    # Base confidence starts at 70% for alternative diagnosis
-    base = 0.70
     
-    # Boost based on cluster size
-    if cluster_size >= 10:
+    # Start conservative, base confidence depends on category match
+    if user_illness_category == cluster_category:
+        base = 0.55  # Same category = slightly more trust
+    else:
+        base = 0.40  # Different category = very skeptical
+    
+    # Boost based on cluster size (need strong evidence)
+    if cluster_size >= 15:
+        size_boost = 0.20
+    elif cluster_size >= 10:
         size_boost = 0.15
     elif cluster_size >= 5:
         size_boost = 0.10
     else:
         size_boost = 0.05
     
-    # Boost based on consensus (only consider high consensus alternatives)
-    consensus_boost = min((consensus_ratio - 0.75) * 0.5, 0.10)
+    # Boost based on consensus (only very high consensus matters)
+    if consensus_ratio >= 0.85:
+        consensus_boost = 0.15
+    elif consensus_ratio >= 0.80:
+        consensus_boost = 0.10
+    else:
+        consensus_boost = 0.05
     
-    return min(base + size_boost + consensus_boost, 0.90)
-
+    confidence = base + size_boost + consensus_boost
+    
+    return min(confidence, 0.85)
 
 def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     """
@@ -449,7 +536,7 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     location = sample_tag.replace("_", " ").title() if sample_tag else "this location"
     
     if result_type == "CONFIRMED":
-        return f"""✅ OUTBREAK CONFIRMATION
+        return f"""âœ… OUTBREAK CONFIRMATION
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
@@ -458,17 +545,23 @@ Based on this strong outbreak pattern, I'm increasing my confidence in this diag
 """
     
     elif result_type == "ALTERNATIVE":
-        return f"""🩺 ALTERNATIVE DIAGNOSIS SUGGESTED
+        category_note = ""
+        if validation_result.get("category_match"):
+            category_note = " (both in the same illness category)"
+        else:
+            category_note = " (note: different illness categories)"
+            
+        return f"""ðŸ©º ALTERNATIVE DIAGNOSIS SUGGESTED
 
 We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
 
-While your symptoms initially suggested {validation_result['original_diagnosis']}, {consensus:.0%} of people exposed at this location were diagnosed with {validation_result['refined_diagnosis']}. 
-Given this strong outbreak pattern, I'm updating your diagnosis to {validation_result['refined_diagnosis']} with {validation_result['refined_confidence']*100:.0f}% confidence.
+While your symptoms initially suggested {validation_result['original_diagnosis']}, {consensus:.0%} of people exposed at this location were diagnosed with {validation_result['refined_diagnosis']}{category_note}. 
+Given this outbreak pattern, I'm suggesting {validation_result['refined_diagnosis']} as an alternative diagnosis with {validation_result['refined_confidence']*100:.0f}% confidence.
 Please discuss this finding with your healthcare provider.
 """
     
     elif result_type == "WEAK_MATCH":
-        return f"""ℹ️ CLUSTER INFORMATION
+        return f"""â„¹ï¸ CLUSTER INFORMATION
 
 We've detected {cluster_size} illness reports from your reported exposure location.
 
@@ -477,14 +570,13 @@ Your diagnosis remains unchanged, but we're flagging this cluster activity for y
 """
     
     else:  # LOW_CONSENSUS
-        return f"""📍 CLUSTER DETECTED
+        return f"""ðŸ“ CLUSTER DETECTED
 
 {cluster_size} people exposed at your reported exposure location have reported varied illnesses.
 
 Due to the diversity of diagnoses, we cannot confirm or refute your {validation_result['refined_diagnosis']} 
 diagnosis based on cluster data. Your original diagnosis stands.
 """
-
 
 def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     """
@@ -542,8 +634,9 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
             "validation_result": "ERROR"
         }), history
     
-    print(f"🔍 Validating diagnosis: {user_disease} ({user_confidence:.0%} confidence)")
+    print(f"ðŸ” Validating diagnosis: {user_disease} ({user_confidence:.0%} confidence)")
     print(f"   Exposure: ({exposure_lat}, {exposure_lon}), {days_since_exposure} days ago")
+    print(f"   User category: {illness_category}")
     
     # Query for matching cluster
     cluster_data = query_matching_cluster(
@@ -557,12 +650,18 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     cluster_found = bool(cluster_data)
     
     if cluster_found:
-        print(f"✅ Cluster found: {cluster_data['exposure_cluster_id']}")
+        print(f"âœ… Cluster found: {cluster_data['exposure_cluster_id']}")
         print(f"   Size: {cluster_data['cluster_size']}, Predominant: {cluster_data['predominant_disease']}")
         print(f"   Consensus: {cluster_data['consensus_ratio']:.0%}")
+        print(f"   Cluster category: {cluster_data.get('predominant_category', 'unknown')}")
     
     # Validate diagnosis against cluster
-    validation_result = validate_diagnosis(user_disease, user_confidence, cluster_data)
+    validation_result = validate_diagnosis(
+        user_disease, 
+        user_confidence, 
+        illness_category,
+        cluster_data
+    )
     
     # Format user message
     console_output = format_cluster_alert(validation_result, cluster_data) if cluster_found else ""

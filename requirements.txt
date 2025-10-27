@@ -21,7 +21,7 @@ pinecone
 google-cloud-bigquery
 
 # Geolocation lookup
-# googlemaps==4.10.0
+googlemaps==4.10.0
 
 # Date parsing
 dateparser

@@ -18,3 +18,4 @@ Thumbs.db
 adsp_service_account_key.json
 venv/
 firebase_service_account_key.json
+firebase_service_account.json

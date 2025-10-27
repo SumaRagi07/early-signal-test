@@ -7,6 +7,7 @@ This replaces the sequential workflow with a state graph that allows:
 - No separate clarification agent (handled in diagnostic_agent)
 - Max 3 clarification attempts enforced
 - Better state management
+- GPS coordinate support for automatic location detection
 
 Removed in this version:
 - Clarification agent node (diagnostic agent handles this internally)
@@ -25,7 +26,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from helpers import (
     parse_json_from_response,
     serialize_history, 
-    deserialize_history
+    deserialize_history,
+    reverse_geocode  # NEW - for GPS coordinate → location name conversion
 )
 from config import PROJECT_ID, PINECONE_INDEX_NAME, TABLE_ID
 from agents.symptom_agent import run_agent as run_symptom
@@ -49,6 +51,7 @@ class ChatState(TypedDict):
     # User interaction
     user_input: str
     session_id: str
+    user_id: str
     console_output: str
     
     # Conversation history (for LLM context)
@@ -69,8 +72,8 @@ class ChatState(TypedDict):
     exposure_longitude: float
     days_since_exposure: int
     exposure_awaiting_field: str
-    exposure_partial_location: str  # ADD THIS
-    exposure_partial_days: int      # ADD THIS
+    exposure_partial_location: str
+    exposure_partial_days: int
     
     # Current location
     location_city_state: str
@@ -137,7 +140,9 @@ def determine_start_node(state: dict) -> str:
         return "cluster_validation"
     
     # Has location, ready for submission
-    if state.get("location_json", {}).get("current_location_name"):
+    # FIXED: GPS location alone shouldn't trigger submission - need exposure data too
+    if (state.get("location_json", {}).get("current_location_name") and
+        state.get("exposure_location_name")):
         return "bq_submission"
     
     # Has exposure, need location
@@ -325,8 +330,8 @@ def exposure_collection_node(state: ChatState) -> ChatState:
         if state.get("exposure_partial_days") is not None:
             exp_payload["partial_days"] = state.get("exposure_partial_days")
     
-    # Call exposure agent
-    exp_json, updated_history = run_exposure(json.dumps(exp_payload), history)
+    # Call exposure agent WITH STATE
+    exp_json, updated_history = run_exposure(json.dumps(exp_payload), history, state)
     exp = parse_json_from_response(exp_json)
         
     updates = {
@@ -366,8 +371,24 @@ def exposure_collection_node(state: ChatState) -> ChatState:
 def location_collection_node(state: ChatState) -> ChatState:
     """
     Node 4: Collect current location (city/state and venue).
+    UPDATED: Skip if GPS coordinates already provided.
     """
     
+    # NEW: Check if location already provided via GPS
+    location_json = state.get("location_json", {})
+    if (location_json.get("current_location_name") and 
+        location_json.get("current_latitude") is not None and
+        location_json.get("current_longitude") is not None):
+        
+        print("✅ Using GPS-provided location, skipping location questions")
+        
+        # Return immediately with no console output (silent skip)
+        return {
+            "location_json": location_json,
+            "console_output": ""
+        }
+    
+    # EXISTING CODE: Ask for location manually
     history = deserialize_history(state.get("history", []))
     user_input = state.get("user_input", "")
     
@@ -426,9 +447,20 @@ def bq_submission_node(state: ChatState) -> ChatState:
     diagnosis = state.get("diagnosis", {})
     location_json = state.get("location_json", {})
     
+    # Get user_id from state with fallback to "1" (as string)
+    user_id = state.get("user_id")
+    
+    # Use Firebase UID directly as string, or fallback to "1"
+    if user_id and user_id != "anonymous":
+        user_id_str = str(user_id)  # Keep Firebase UID as-is
+        print(f"[Backend] Using Firebase user_id: {user_id_str}")
+    else:
+        user_id_str = "1"  # Fallback as string
+        print(f"[Backend] No user_id provided, using fallback: 1")
+    
     report = {
         "report_id": report_id,
-        "user_id": 1,
+        "user_id": user_id_str,  # STRING, not integer!
         "report_timestamp": datetime.now(timezone.utc).isoformat(),
         "symptom_text": ", ".join(state.get("symptoms", [])),
         "days_since_symptom_onset": state.get("days_since_onset"),
@@ -453,13 +485,11 @@ def bq_submission_node(state: ChatState) -> ChatState:
         ]
     }
     
-    print(f"Submitting report...")
+    print(f"[Backend] Submitting report with user_id: {user_id_str}")
     
     # Call BQ submission agent
     result_json, updated_history = run_bq(json.dumps(report), history)
     result_bq = parse_json_from_response(result_json)
-    
-    #print(f"BQ submission result: {result_bq}")
     
     updates = {
         "history": serialize_history(updated_history),
@@ -467,7 +497,6 @@ def bq_submission_node(state: ChatState) -> ChatState:
     }
     
     if result_bq.get("status") == "success":
-        #updates["console_output"] = "Your report has been submitted successfully!"
         updates["console_output"] = ""
     else:
         updates["console_output"] = "Submission error. Please try again."
@@ -544,7 +573,7 @@ def cluster_validation_node(state: ChatState) -> ChatState:
                 "reasoning": validation_result.get("reasoning"),
                 "cluster_validated": True,
                 "original_diagnosis": validation_result.get("original_diagnosis"),
-                "original_diagnosis_confidence": user_confidence,  # ADD THIS
+                "original_diagnosis_confidence": user_confidence,
                 "validation_type": validation_type
             }
             updates["diagnosis"] = refined_diagnosis
@@ -571,18 +600,9 @@ def care_advice_node(state: ChatState) -> ChatState:
     care_json, updated_history = run_care(json.dumps(report), history)
     care = parse_json_from_response(care_json)
     
-    # Format care advice for user
-    #tips = care.get("self_care_tips", [])
-    #when_to_seek = care.get("when_to_seek_help", "")
-    
-    #care_msg = "\n".join(f"• {tip}" for tip in tips)
-    #console_output = state.get("console_output", "")
-    #console_output += f"\n\nSelf-Care Tips:\n{care_msg}\n\nSeek help if: {when_to_seek}"
-    
     return {
         "history": serialize_history(updated_history),
         "care_advice": care,
-        #"console_output": console_output,
         "console_output": "",
         "is_complete": True
     }
@@ -630,17 +650,28 @@ def route_after_diagnosis(state: ChatState) -> Literal["exposure_collection", EN
     # Default: wait for more processing
     return END
 
-def route_after_exposure(state: ChatState) -> Literal["location_collection", END]:
+def route_after_exposure(state: ChatState) -> Literal["location_collection", "bq_submission", END]:
     """
     Check if we have complete exposure info.
+    UPDATED: Skip location collection if GPS already provided.
     """
     has_location = is_valid_location(state.get("exposure_location_name"))
     has_days = is_valid_days(state.get("days_since_exposure"))
     
-    if has_location and has_days:
-        return "location_collection"
-    else:
+    if not (has_location and has_days):
         return END
+    
+    # NEW: Check if we already have GPS location
+    location_json = state.get("location_json", {})
+    if (location_json.get("current_latitude") is not None and 
+        location_json.get("current_longitude") is not None and
+        location_json.get("current_location_name")):
+        # Skip location collection, go straight to submission
+        print("🚀 GPS location available, skipping location questions → BQ submission")
+        return "bq_submission"
+    
+    # Ask for location manually
+    return "location_collection"
 
 
 def route_after_location(state: ChatState) -> Literal["bq_submission", END]:
@@ -707,6 +738,7 @@ def create_chat_graph():
         route_after_exposure,
         {
             "location_collection": "location_collection",
+            "bq_submission": "bq_submission",  # NEW: Direct route when GPS available
             END: END
         }
     )
@@ -734,9 +766,16 @@ def create_chat_graph():
 # MAIN EXECUTION FUNCTION
 # ============================================================================
 
-def run_graph_chat_flow(user_input: str, session_id: str = None):
+def run_graph_chat_flow(
+    user_input: str, 
+    session_id: str = None,
+    user_id: str = None,
+    current_latitude: float = None,   # NEW: GPS latitude
+    current_longitude: float = None   # NEW: GPS longitude
+):
     """
     Main entry point for the graph-based chatbot.
+    UPDATED: Now accepts optional GPS coordinates for automatic location detection.
     """
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -773,6 +812,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
     initial_state = {
         "user_input": user_input,
         "session_id": session_id,
+        "user_id": user_id or session.get("state", {}).get("user_id") or "anonymous",  # NEW
         "console_output": "",
         "history": session.get("history", []),
         "symptoms": session.get("state", {}).get("symptoms", []) or [],
@@ -796,11 +836,40 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
         "is_complete": False
     }
     
+    # NEW: Add location coordinates to initial state if provided
+    # BUT ONLY if we haven't already stored location AND we're past the exposure stage
+    if current_latitude is not None and current_longitude is not None:
+        # Check if we haven't already stored location
+        if not session.get("state", {}).get("location_json", {}).get("current_location_name"):
+            # Reverse geocode to get location name
+            location_name = reverse_geocode(current_latitude, current_longitude)
+            
+            # Infer location category (simple heuristic - can enhance later)
+            location_category = "urban"  # Default assumption for GPS locations
+            
+            initial_state["location_json"] = {
+                "current_location_name": location_name or f"GPS Location ({current_latitude:.4f}, {current_longitude:.4f})",
+                "current_latitude": current_latitude,
+                "current_longitude": current_longitude,
+                "location_category": location_category
+            }
+            
+            # Mark that we have location data (so routers skip location_collection)
+            initial_state["location_city_state"] = location_name or "GPS location"
+            initial_state["location_venue"] = "Provided via GPS"
+            
+            print(f"📍 Using GPS-provided location: {location_name or 'coordinates'}")
+    
     # Create the graph
     graph = create_chat_graph()
     
     # Determine where to start based on what we already have
     start_node = determine_start_node(initial_state)
+    
+    print(f"🔍 DEBUG: start_node = {start_node}")
+    print(f"🔍 DEBUG: initial_state symptoms = {initial_state.get('symptoms')}")
+    print(f"🔍 DEBUG: initial_state diagnosis = {initial_state.get('diagnosis')}")
+    print(f"🔍 DEBUG: initial_state exposure = {initial_state.get('exposure_location_name')}")
     
     try:
         config = {
@@ -851,10 +920,18 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
                             current_state["console_output"] = exposure_output
                 
                 # Check if we should auto-continue based on routers
+                # IMPORTANT: Only auto-continue if we're RESUMING (have exposure data already)
                 if start_node == "exposure_collection":
                     # Check if exposure is complete and should continue to location
                     next_route = route_after_exposure(current_state)
-                    if next_route == "location_collection":
+                    
+                    # Only auto-continue if we HAVE exposure data (resuming mid-flow)
+                    has_exposure = (
+                        current_state.get("exposure_location_name") and 
+                        current_state.get("days_since_exposure") is not None
+                    )
+                    
+                    if has_exposure and next_route == "location_collection":
                         updates = location_collection_node(current_state)
                         current_state.update(updates)
                         
@@ -870,6 +947,18 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
 
                             updates = care_advice_node(current_state)
                             current_state.update(updates)
+                    
+                    # NEW: Handle GPS skip to BQ submission (only if we have exposure)
+                    elif has_exposure and next_route == "bq_submission":
+                        updates = bq_submission_node(current_state)
+                        current_state.update(updates)
+                        
+                        # Auto-continue to cluster validation
+                        updates = cluster_validation_node(current_state)
+                        current_state.update(updates)
+
+                        updates = care_advice_node(current_state)
+                        current_state.update(updates)
                 
                 elif start_node == "location_collection":
                     # Check if location is complete
@@ -931,6 +1020,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
         
         # Prepare state to save
         state_to_save = {
+            "user_id": final_state.get("user_id"),  # NEW
             "symptoms": final_state.get("symptoms", []),
             "days_since_onset": final_state.get("days_since_onset"),
             "diagnosis": final_state.get("diagnosis", {}),
@@ -969,7 +1059,7 @@ def run_graph_chat_flow(user_input: str, session_id: str = None):
             "console_output": "Sorry, something went wrong. Please try again."
         }
         return result, session.get("history", [])
-
+    
 # For backwards compatibility
 run_chat_flow = run_graph_chat_flow
 
