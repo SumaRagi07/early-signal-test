@@ -145,11 +145,22 @@ def query_matching_cluster(
     print(f"   📍 User tract: {user_tract_id}")
     
     # Step 2: Get adjacent tracts for fuzzy matching
-    adjacent_tracts = get_adjacent_tracts(user_tract_id)
-    
-    if not adjacent_tracts:
-        print(f"   ❔  Could not determine adjacent tracts, using exact match only")
+    # Decide whether to use adjacent tracts based on illness category
+    # FOODBORNE: Point-source contamination (restaurant) = EXACT tract only
+    # WATERBORNE/AIRBORNE/INSECT-BORNE: Allow adjacent tracts (diffuse transmission)
+    if illness_category == "foodborne":
+        # Foodborne: EXACT tract match only (restaurant stays in one location)
         adjacent_tracts = [user_tract_id]
+        print(f"   🎯 Using EXACT tract match only for foodborne illness (point-source contamination)")
+    else:
+        # All other categories: use adjacent tracts for fuzzy matching
+        adjacent_tracts = get_adjacent_tracts(user_tract_id)
+        
+        if not adjacent_tracts:
+            print(f"   ❔  Could not determine adjacent tracts, using exact match only")
+            adjacent_tracts = [user_tract_id]
+        else:
+            print(f"   🗺️  Using {len(adjacent_tracts)} adjacent tracts for {illness_category} illness")
     
     # Step 3: Calculate user's exposure date
     user_exposure_date = datetime.now() - timedelta(days=days_since_exposure)
@@ -517,15 +528,18 @@ def calculate_alternative_confidence(
     
     return min(confidence, 0.85)
 
-def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
+def format_cluster_alert(validation_result: Dict, cluster_data: Dict, illness_category: str = None) -> str:
     """
     Generate user-facing message about cluster validation result.
     
-    FIXED: Now uses original_confidence from validation_result instead of defaulting to 0.
+    UPDATED: Now uses dynamic location language based on illness_category.
+    - "reported current location" for airborne illnesses
+    - "reported exposure location" for all other categories
     
     Args:
         validation_result: Output from validate_diagnosis()
         cluster_data: Cluster data from query_matching_cluster()
+        illness_category: User's illness category (airborne, foodborne, etc.)
     
     Returns:
         Formatted alert message for user
@@ -539,6 +553,12 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
     sample_tag = cluster_data["sample_exposure_tag"]
     consensus = cluster_data["consensus_ratio"]
     
+    # Determine location language based on illness category
+    if illness_category == "airborne":
+        location_text = "reported current location"
+    else:
+        location_text = "reported exposure location"
+    
     # Format the exposure location nicely
     location = sample_tag.replace("_", " ").title() if sample_tag else "this location"
     
@@ -549,7 +569,7 @@ def format_cluster_alert(validation_result: Dict, cluster_data: Dict) -> str:
         
         return f"""✅ OUTBREAK CONFIRMATION
 
-We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
+We've detected an active outbreak cluster of {cluster_size} cases linked to your {location_text}.
 
 Your diagnosis of {validation_result['refined_diagnosis']} matches the outbreak pattern we're tracking - {consensus:.0%} of cases at this location have been diagnosed with the same condition. 
 Based on this strong outbreak pattern, I'm increasing my confidence in this diagnosis from {original_conf_pct}% to {refined_conf_pct}%.
@@ -566,7 +586,7 @@ Based on this strong outbreak pattern, I'm increasing my confidence in this diag
             
         return f"""🩺 ALTERNATIVE DIAGNOSIS SUGGESTED
 
-We've detected an active outbreak cluster of {cluster_size} cases linked to your reported exposure location.
+We've detected an active outbreak cluster of {cluster_size} cases linked to your {location_text}.
 
 While your symptoms initially suggested {validation_result['original_diagnosis']}, {consensus:.0%} of people exposed at this location were diagnosed with {validation_result['refined_diagnosis']}{category_note}. 
 Given this outbreak pattern, I'm suggesting {validation_result['refined_diagnosis']} as an alternative diagnosis with {refined_conf_pct}% confidence.
@@ -576,7 +596,7 @@ Please discuss this finding with your healthcare provider.
     elif result_type == "WEAK_MATCH":
         return f"""ℹ️ CLUSTER INFORMATION
 
-We've detected {cluster_size} illness reports from your reported exposure location.
+We've detected {cluster_size} illness reports from your {location_text}.
 
 The diagnoses vary, with {validation_result['cluster_predominant_disease']} being most common ({consensus:.0%} of cases), though your {validation_result['refined_diagnosis']} diagnosis is also consistent with exposure at this location. 
 Your diagnosis remains unchanged, but we're flagging this cluster activity for your awareness.
@@ -585,7 +605,7 @@ Your diagnosis remains unchanged, but we're flagging this cluster activity for y
     else:  # LOW_CONSENSUS
         return f"""ℹ️ CLUSTER DETECTED
 
-{cluster_size} people exposed at your reported exposure location have reported varied illnesses.
+{cluster_size} people exposed at your {location_text} have reported varied illnesses.
 
 Due to the diversity of diagnoses, we cannot confirm or refute your {validation_result['refined_diagnosis']} 
 diagnosis based on cluster data. Your original diagnosis stands.
@@ -707,8 +727,8 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     
     print(f"✅ Cluster validation: {validation_result['validation_result']}")
     
-    # Format user message
-    console_output = format_cluster_alert(validation_result, cluster_data) if cluster_found else ""
+    # Format user message - CHANGED: Pass illness_category
+    console_output = format_cluster_alert(validation_result, cluster_data, illness_category) if cluster_found else ""
     
     # Build response
     result = {

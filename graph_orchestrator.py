@@ -131,19 +131,19 @@ def determine_start_node(state: dict) -> str:
     if state.get("care_advice"):
         return "symptom_collection"  # Already done
     
-    # Has cluster validation but no care advice
-    if state.get("cluster_validation"):
+    # Has report but no care advice
+    if state.get("report"):
         return "care_advice"
 
-    # Has report but no cluster validation
-    if state.get("report"):
-        return "cluster_validation"
+    # Has cluster validation but no report
+    if state.get("cluster_validation"):
+        return "bq_submission"
     
-    # Has location, ready for submission
+    # Has location, ready for cluster validation
     # FIXED: GPS location alone shouldn't trigger submission - need exposure data too
     if (state.get("location_json", {}).get("current_location_name") and
         state.get("exposure_location_name")):
-        return "bq_submission"
+        return "cluster_validation"
     
     # Has exposure, need location
     if state.get("exposure_location_name") and state.get("days_since_exposure") is not None:
@@ -658,7 +658,7 @@ def route_after_diagnosis(state: ChatState) -> Literal["exposure_collection", EN
     # Default: wait for more processing
     return END
 
-def route_after_exposure(state: ChatState) -> Literal["location_collection", "bq_submission", END]:
+def route_after_exposure(state: ChatState) -> Literal["location_collection", "cluster_validation", END]:
     """
     Check if we have complete exposure info.
     UPDATED: Skip location collection if GPS already provided.
@@ -674,22 +674,22 @@ def route_after_exposure(state: ChatState) -> Literal["location_collection", "bq
     if (location_json.get("current_latitude") is not None and 
         location_json.get("current_longitude") is not None and
         location_json.get("current_location_name")):
-        # Skip location collection, go straight to submission
-        print("🚀 GPS location available, skipping location questions → BQ submission")
-        return "bq_submission"
+        # Skip location collection, go straight to cluster validation
+        print("🚀 GPS location available, skipping location questions → cluster validation")
+        return "cluster_validation"
     
     # Ask for location manually
     return "location_collection"
 
 
-def route_after_location(state: ChatState) -> Literal["bq_submission", END]:
+def route_after_location(state: ChatState) -> Literal["cluster_validation", END]:
     """
     Check if we have complete location info.
     """
     has_full_data = bool(state.get("location_json", {}).get("current_location_name"))
     
     if has_full_data:
-        return "bq_submission"
+        return "cluster_validation"
     else:
         return END
 
@@ -703,7 +703,7 @@ def create_chat_graph():
     Build the LangGraph state graph.
     
     Flow: symptom_collection -> diagnosis -> exposure_collection -> 
-          location_collection -> bq_submission -> care_advice -> END
+          location_collection -> cluster_validation -> bq_submission -> care_advice -> END
     
     Each node can END to wait for more user input.
     State persists between calls via Firestore.
@@ -746,7 +746,7 @@ def create_chat_graph():
         route_after_exposure,
         {
             "location_collection": "location_collection",
-            "bq_submission": "bq_submission",  # NEW: Direct route when GPS available
+            "cluster_validation": "cluster_validation",  # NEW: Direct route when GPS available
             END: END
         }
     )
@@ -755,14 +755,14 @@ def create_chat_graph():
         "location_collection",
         route_after_location,
         {
-            "bq_submission": "bq_submission",
+            "cluster_validation": "cluster_validation",
             END: END
         }
     )
     
     # Final path to completion
-    workflow.add_edge("bq_submission", "cluster_validation")
-    workflow.add_edge("cluster_validation", "care_advice")
+    workflow.add_edge("cluster_validation", "bq_submission")
+    workflow.add_edge("bq_submission", "care_advice")
     workflow.add_edge("care_advice", END)
     
     # Compile with checkpointing
@@ -945,24 +945,24 @@ def run_graph_chat_flow(
                         
                         # Check if location is also complete
                         next_route = route_after_location(current_state)
-                        if next_route == "bq_submission":
-                            updates = bq_submission_node(current_state)
+                        if next_route == "cluster_validation":
+                            updates = cluster_validation_node(current_state)
                             current_state.update(updates)
                             
-                            # Auto-continue to cluster validation
-                            updates = cluster_validation_node(current_state)
+                            # Auto-continue to BQ submission
+                            updates = bq_submission_node(current_state)
                             current_state.update(updates)
 
                             updates = care_advice_node(current_state)
                             current_state.update(updates)
                     
-                    # NEW: Handle GPS skip to BQ submission (only if we have exposure)
-                    elif has_exposure and next_route == "bq_submission":
-                        updates = bq_submission_node(current_state)
+                    # NEW: Handle GPS skip to cluster validation (only if we have exposure)
+                    elif has_exposure and next_route == "cluster_validation":
+                        updates = cluster_validation_node(current_state)
                         current_state.update(updates)
                         
-                        # Auto-continue to cluster validation
-                        updates = cluster_validation_node(current_state)
+                        # Auto-continue to BQ submission
+                        updates = bq_submission_node(current_state)
                         current_state.update(updates)
 
                         updates = care_advice_node(current_state)
@@ -971,12 +971,12 @@ def run_graph_chat_flow(
                 elif start_node == "location_collection":
                     # Check if location is complete
                     next_route = route_after_location(current_state)
-                    if next_route == "bq_submission":
-                        updates = bq_submission_node(current_state)
+                    if next_route == "cluster_validation":
+                        updates = cluster_validation_node(current_state)
                         current_state.update(updates)
                         
-                        # Auto-continue to cluster validation
-                        updates = cluster_validation_node(current_state)
+                        # Auto-continue to BQ submission
+                        updates = bq_submission_node(current_state)
                         current_state.update(updates)
 
                         updates = care_advice_node(current_state)
