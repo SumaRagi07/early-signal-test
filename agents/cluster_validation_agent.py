@@ -604,7 +604,9 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
         "exposure_latitude": 41.8781,
         "exposure_longitude": -87.6298,
         "days_since_exposure": 2,
-        "illness_category": "foodborne"
+        "illness_category": "foodborne",
+        "current_latitude": 41.8500,  # NEW: Optional
+        "current_longitude": -87.6500  # NEW: Optional
     }
     
     Output format (JSON):
@@ -638,6 +640,10 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
     days_since_exposure = data.get("days_since_exposure")
     illness_category = data.get("illness_category")
     
+    # NEW: Get current location coordinates
+    current_lat = data.get("current_latitude")
+    current_lon = data.get("current_longitude")
+    
     # Validate required fields
     if not all([user_disease, exposure_lat is not None, exposure_lon is not None, 
                 days_since_exposure is not None]):
@@ -647,14 +653,37 @@ def run_agent(user_msg: str, history: List[Dict]) -> Tuple[str, List[Dict]]:
             "validation_result": "ERROR"
         }), history
     
+    # NEW: Determine which coordinates to use based on illness category
+    # For airborne/respiratory illnesses, use CURRENT location (where transmission happened)
+    # For all other categories, use EXPOSURE location (where contamination occurred)
+    if illness_category == "airborne":
+        # Use current location if available, fallback to exposure location
+        if current_lat is not None and current_lon is not None:
+            cluster_lat = current_lat
+            cluster_lon = current_lon
+            location_type = "current"
+            print(f"🫁 Airborne illness detected - using CURRENT location for cluster matching")
+        else:
+            cluster_lat = exposure_lat
+            cluster_lon = exposure_lon
+            location_type = "exposure"
+            print(f"⚠️  Airborne illness but no current location - falling back to exposure location")
+    else:
+        # Non-airborne: use exposure location
+        cluster_lat = exposure_lat
+        cluster_lon = exposure_lon
+        location_type = "exposure"
+        print(f"📍 Using EXPOSURE location for cluster matching ({illness_category})")
+    
     print(f"Validating diagnosis: {user_disease} ({user_confidence:.0%} confidence)")
-    print(f"   Exposure: ({exposure_lat}, {exposure_lon}), {days_since_exposure} days ago")
+    print(f"   Cluster search location ({location_type}): ({cluster_lat}, {cluster_lon})")
+    print(f"   Days since exposure: {days_since_exposure}")
     print(f"   User category: {illness_category}")
     
-    # Query for matching cluster
+    # Query for matching cluster using the determined coordinates
     cluster_data = query_matching_cluster(
-        exposure_lat, 
-        exposure_lon, 
+        cluster_lat,   # CHANGED: Use determined coordinates
+        cluster_lon,   # CHANGED: Use determined coordinates
         days_since_exposure,
         user_disease,
         illness_category

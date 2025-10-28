@@ -523,6 +523,11 @@ def cluster_validation_node(state: ChatState) -> ChatState:
     days_since_exposure = state.get("days_since_exposure")
     illness_category = diagnosis.get("illness_category")
     
+    # NEW: Get current location coordinates
+    location_json = state.get("location_json", {})
+    current_lat = location_json.get("current_latitude")
+    current_lon = location_json.get("current_longitude")
+    
     # Skip cluster validation if we don't have required data
     if not all([user_disease, exposure_lat is not None, exposure_lon is not None, 
                 days_since_exposure is not None]):
@@ -540,7 +545,10 @@ def cluster_validation_node(state: ChatState) -> ChatState:
         "exposure_latitude": exposure_lat,
         "exposure_longitude": exposure_lon,
         "days_since_exposure": days_since_exposure,
-        "illness_category": illness_category
+        "illness_category": illness_category,
+        # NEW: Pass current location
+        "current_latitude": current_lat,
+        "current_longitude": current_lon
     }
     
     print(f"🔍 Validating diagnosis against outbreak clusters...")
@@ -551,7 +559,7 @@ def cluster_validation_node(state: ChatState) -> ChatState:
         history
     )
     validation_result = parse_json_from_response(validation_json)
-    
+        
     updates = {
         "history": serialize_history(updated_history),
         "cluster_validation": validation_result,
