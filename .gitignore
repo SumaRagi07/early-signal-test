@@ -19,3 +19,53 @@ adsp_service_account_key.json
 venv/
 firebase_service_account_key.json
 firebase_service_account.json
+# ===== FLUTTER/FRONTEND =====
+
+# Flutter/Dart/Pub related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/generated_plugin_registrant.dart
+.packages
+.pub-preload-cache/
+.pub/
+build/
+
+# Android Studio/IntelliJ
+.idea/
+*.iml
+*.iws
+
+# Android related
+.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+*.jks
+
+# iOS/XCode related
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/xcuserdata
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral
+
+# macOS
+**/macos/Flutter/ephemeral
+**/Pods/
+**/xcuserdata/
+
+# Coverage
+coverage/
+
+# Miscellaneous
+*.class
+*.lock
+*.log
+*.swp
+
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
