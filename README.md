@@ -3,7 +3,7 @@
 # EarlySignal: Democratizing public health through real-time community alerts
 
 <div align="center">
-  <img src="documents/images/logo.png" width="450" alt="EarlySignal logo">
+  <img src="Early_Signal_Backend/documents/images/logo.png" width="450" alt="EarlySignal logo">
 </div>
 
 </div>
@@ -55,7 +55,7 @@ EarlySignal brings together three interconnected systems:
 
 
 <div align="center">
-  <img src="documents/images/earlysignal_workflow_diagram.png">
+  <img src="Early_Signal_Backend/documents/images/earlysignal_workflow_diagram.png">
 </div>
 
 Together, these components form an end-to-end loop: 
@@ -77,12 +77,12 @@ When a user opens the app, the chatbot:
 4. Offers care recommendations and guidance on when to seek medical help.
 
 <div align="center">
-  <img src="documents/images/chatbot_1.jpeg" width="200" alt="Alert system image 1">
-  <img src="documents/images/chatbot_2.jpeg" width="200" alt="Alert system image 2">
-  <img src="documents/images/chatbot_3.jpeg" width="200" alt="Alert system image 3">
+  <img src="Early_Signal_Backend/documents/images/chatbot_1.jpeg" width="200" alt="Alert system image 1">
+  <img src="Early_Signal_Backend/documents/images/chatbot_2.jpeg" width="200" alt="Alert system image 2">
+  <img src="Early_Signal_Backend/documents/images/chatbot_3.jpeg" width="200" alt="Alert system image 3">
   <br>
-  <img src="documents/images/chatbot_4.jpeg" width="200" alt="Alert system image 4">
-  <img src="documents/images/chatbot_5.jpeg" width="200" alt="Alert system image 5">
+  <img src="Early_Signal_Backend/documents/images/chatbot_4.jpeg" width="200" alt="Alert system image 4">
+  <img src="Early_Signal_Backend/documents/images/chatbot_5.jpeg" width="200" alt="Alert system image 5">
 </div>
 
 **NOTE: REPLACE WITH DEMO OF CHAT**
@@ -118,7 +118,7 @@ This approach merges personalized AI care with community-level insight, bridging
 ### 3.2 🚨 Alert System — Detecting Emerging Outbreaks
 
 <div align="center">
-  <img src="documents/images/alert_system.jpeg" width="300" alt="Alert system image 1">
+  <img src="Early_Signal_Backend/documents/images/alert_system.jpeg" width="300" alt="Alert system image 1">
 </div>
 
 
@@ -152,7 +152,7 @@ Users currently located within or near the impacted tract receive a push alert a
 ### 3.3 📊 Dashboards — Seeing the Signal
 
 <div align="center">
-  <img src="documents/images/dashboard_overview.jpeg" width="300" alt="Alert system image 1">
+  <img src="Early_Signal_Backend/documents/images/dashboard_overview.jpeg" width="300" alt="Alert system image 1">
 </div>
 
 
@@ -258,19 +258,19 @@ Each step moves the system closer to a decentralized, democratized network for p
 
 <table>
   <tr>
-    <td><img src="documents/images/mahima_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Early_Signal_Backend/documents/images/mahima_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/mmahima"><b>Mahima Masetty</b></a></td>
   </tr>
   <tr>
-    <td><img src="documents/images/halle_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Early_Signal_Backend/documents/images/halle_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/halleluya-mengesha"><b>Halleluya Mengesha</b></a></td>
   </tr>
   <tr>
-    <td><img src="documents/images/sumasree_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Early_Signal_Backend/documents/images/sumasree_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/sumasreeragi"><b>Sumasree Ragi</b></a></td>
   </tr>
   <tr>
-    <td><img src="documents/images/hira_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Early_Signal_Backend/documents/images/hira_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/hirastanley95"><b>Hira Stanley</b></a></td>
   </tr>
 </table>
