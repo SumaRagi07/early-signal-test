@@ -8,7 +8,7 @@
 
 </div>
 
-EarlySignal is an AI-powered mobile platform designed to crowdsource early indicators of disease spread. By combining user-reported symptoms, conversational diagnosis, and spatial analytics, it empowers communities to detect outbreaks before they escalate. Through collective participation, it transforms individual health insights into population-level intelligence.
+EarlySignal is an AI-powered mobile platform designed to crowdsource early indicators of disease spread. By combining user-reported symptoms, conversational diagnosis, and spatial analytics, it empowers communities to detect outbreaks before they escalate. Through collective participation, it transforms individual health insights into population-level intelligence. XX
 
 ---
 
