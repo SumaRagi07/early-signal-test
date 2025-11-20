@@ -76,15 +76,6 @@ When a user opens the app, the chatbot:
 3. Asks follow-up questions about exposure location (where the illness may have been caught) and current location (where the user is now).  
 4. Offers care recommendations and guidance on when to seek medical help.
 
-<div align="center">
-  <img src="Early_Signal_Backend/documents/images/chatbot_1.jpeg" width="200" alt="Alert system image 1">
-  <img src="Early_Signal_Backend/documents/images/chatbot_2.jpeg" width="200" alt="Alert system image 2">
-  <img src="Early_Signal_Backend/documents/images/chatbot_3.jpeg" width="200" alt="Alert system image 3">
-  <br>
-  <img src="Early_Signal_Backend/documents/images/chatbot_4.jpeg" width="200" alt="Alert system image 4">
-  <img src="Early_Signal_Backend/documents/images/chatbot_5.jpeg" width="200" alt="Alert system image 5">
-</div>
-
 **NOTE: REPLACE WITH DEMO OF CHAT**
 
 Each interaction contributes an anonymized record including symptoms, diagnosis, and geolocation to a secure data store. As more users participate, the system gains “collective wisdom,” i.e., when multiple nearby users report similar patterns, the model refines its diagnostic confidence and improves local accuracy.
@@ -121,11 +112,6 @@ This approach merges personalized AI care with community-level insight, bridging
 
 ### 3.2 🩵 Alert System — Detecting Emerging Outbreaks
 
-<div align="center">
-  <img src="Misc_Documents/Images/alert_system.jpeg" width="300" alt="Alert system image 1">
-</div>
-
-
 Every report from the chatbot feeds into a unified analytical pipeline hosted in *BigQuery*. The alert system identifies patterns of illness activity across neighborhoods and within localized clusters, combining both into one cohesive feed.
 
 **1. Every report becomes a data point**  
@@ -155,11 +141,6 @@ Users currently located within or near the impacted tract receive a push alert a
 
 ### 3.3 🩵 Dashboards — Seeing the Signal
 
-<div align="center">
-  <img src="Early_Signal_Backend/documents/images/dashboard_overview.jpeg" width="300" alt="Alert system image 1">
-</div>
-
-
 **NOTE: DEMO OF DASHBOARD SHOWING FUNCTIONALITY TO BE ADDED**
 
 The app’s dashboard transforms community data into clear, actionable visuals:  
@@ -179,7 +160,7 @@ These interfaces translate raw analytics into intuitive public insight — allow
 The EarlySignal system integrates the mobile app, authentication layer, LLM chatbot workflow, and alert engine through a coordinated flow across **Flutter**, **Firebase**, **FastAPI**, and **BigQuery**. Below is a high-level overview of how data moves through the platform.***
 
 <div align="center">
-  <img src="Early_Signal_Backend/documents/images/earlysignal_architecture.png">
+  <img src="Misc_Documents/Images/earlysignal_architecture.png">
 </div>
 
 *I User Authentication & App Initialization*
