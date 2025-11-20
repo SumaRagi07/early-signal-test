@@ -18,7 +18,7 @@ EarlySignal is an AI-powered mobile platform that detects emerging outbreaks by 
 2. [Overview of EarlySignal](#2--overview-of-earlysignal)
 3. [Project](#3--project)
    - [EarlySignal Agent — Personal Health Intake and Guidance](#31--earlysignal-agent--personal-health-intake-and-guidance)
-       - [Cluster Validation Agent - Collective Intelligence Layer](#311--cluster-validation-agent--collective-intelligence-layer)
+    - [Cluster Validation Agent - Collective Intelligence Layer](#311--cluster-validation-agent--collective-intelligence-layer)
    - [Alert System — Detecting Emerging Outbreaks](#32--alert-system--detecting-emerging-outbreaks)
    - [Dashboards — Seeing the Signal](#33--dashboards--seeing-the-signal)
    - [Architecture Overview](#34--architecture-overview)
@@ -115,7 +115,7 @@ This approach merges personalized AI care with community-level insight, bridging
 
 ---
 
-#### 3.1.1 🩵 Cluster Validation Agent - Collective Intelligence Layer
+### 3.1.1 🩵 Cluster Validation Agent - Collective Intelligence Layer
 
 
 ----
@@ -177,16 +177,37 @@ These interfaces translate raw analytics into intuitive public insight — allow
 
 ### 3.4. 🩵 Architecture Overview
 
-EarlySignal combines research-grade AI with accessible mobile technology:
+The EarlySignal system integrates the mobile app, authentication layer, LLM chatbot workflow, and alert engine through a coordinated flow across **Flutter**, **Firebase**, **FastAPI**, and **BigQuery**. Below is a high-level overview of how data moves through the platform.***
 
-| **Layer** | **Description** |
-|:--|:--|
-| **Front End** | Built in Flutter (Dart) for iOS and Android — a single responsive app that handles chat, maps, and dashboards. |
-| **Backend & Cloud** | Firebase Authentication manages logins; Cloud Functions bridge the app with BigQuery for secure data queries. |
-| **AI Orchestration** | LLM agents (Gemini 2.0 Flash) are structured using LangGraph to follow a multi-stage diagnostic flow. |
-| **Data & Storage** | BigQuery for report aggregation and alert logic |
+<div align="center">
+  <img src="Early_Signal_Backend/documents/images/earlysignal_architecture.png">
+</div>
 
-This stack demonstrates how consumer-grade devices and cloud AI can collaborate to deliver population-level intelligence at minimal infrastructure cost.
+*I User Authentication & App Initialization*
+
+1. The user opens the EarlySignal mobile app (built in Flutter) and attempts to log in.
+2. The app requests an authentication token from Firebase.
+3. Firebase verifies the token and grants secure access to the rest of the system.
+
+*II Location Collection, BigQuery Storage & Alert Logic*
+
+4. The app collects the user’s current GPS-enabled location geopoint.
+5. This location data is sent securely to Firebase.
+6. Firebase Cloud Functions pass the GPS data to BigQuery to support home page dashboard rendering and alert targeting.
+7. When alerts are available, Firebase Cloud Functions fetch them from BigQuery and return them to the front end.
+
+*III EarlySignal Chatbot Interaction*
+
+8. The user begins a chat session with the diagnostic agent.
+9., 10. The FastAPI backend manages the full LLM workflow, including iterative symptom extraction, clarification questions, exposure information, and final diagnosis generation, along with receiving GPS-enabled location geopoint. 
+11. Once the conversation is complete, the final structured report is submitted to BigQuery through FastAPI.
+
+
+*IV Dashboard Updates*
+
+12. Firebase receives the newly submitted reports from BigQuery.
+13. Dashboard views update on the front end as new reports and clusters become available.
+
 
 ---
 
@@ -198,8 +219,8 @@ EarlySignal was evaluated through *qualitative guardrails* and *quantitative tes
 
 | **Component** | **Description** |
 |:--|:--|
-| *Curated disease list* | 30+ standardized outbreak diseases across 5 transmission categories |
-| *Differential diagnosis logic* | Symptom-based clarifying questions guided by structured decision patterns |
+| *Curated disease list* | 30+ standardized outbreak diseases across 5 transmission categories with exact naming conventions |
+| *Differential diagnosis logic* | Symptom-based decision logic (e.g., fever + rash → assess rash location/distribution |
 | *Uncertainty handling* | Returns “Unknown” when confidence is insufficient instead of forcing a label |
 | *Spatial-temporal checks* | Diagnoses cross-referenced against active outbreak clusters in BigQuery |
 
