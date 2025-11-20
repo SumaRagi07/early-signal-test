@@ -8,16 +8,17 @@
 
 </div>
 
-EarlySignal is an AI-powered mobile platform designed to crowdsource early indicators of disease spread. By combining user-reported symptoms, conversational diagnosis, and spatial analytics, it empowers communities to detect outbreaks before they escalate. Through collective participation, it transforms individual health insights into population-level intelligence. XX
+EarlySignal is an AI-powered mobile platform that detects emerging outbreaks by combining frontier-model diagnostic reasoning with geospatial analytics and clustering. The system collects anonymous symptoms, interprets them through a structured LLM agent, and then maps each report in both space and time using census-tract boundaries and temporal windows. By aggregating cases using clustering and comparing individual diagnoses to patterns around them, EarlySignal creates a collective medical intelligence layer that strengthens diagnostic confidence and highlights localized anomalies long before traditional surveillance systems surface them.
 
 ---
 
-## 📋 Table of Contents
+## 🛜 Table of Contents
 
 1. [Project Motivation](#1--project-motivation)
 2. [Overview of EarlySignal](#2--overview-of-earlysignal)
 3. [Project](#3--project)
-   - [LLM Chatbot — Personal Health Intake and Guidance](#31--llm-chatbot--personal-health-intake-and-guidance)
+   - [EarlySignal Agent — Personal Health Intake and Guidance](#31--earlysignal-agent--personal-health-intake-and-guidance)
+       - [Cluster Validation Agent - Collective Intelligence Layer](#311--cluster-validation-agent--collective-intelligence-layer)
    - [Alert System — Detecting Emerging Outbreaks](#32--alert-system--detecting-emerging-outbreaks)
    - [Dashboards — Seeing the Signal](#33--dashboards--seeing-the-signal)
    - [Architecture Overview](#34--architecture-overview)
@@ -26,46 +27,45 @@ EarlySignal is an AI-powered mobile platform designed to crowdsource early indic
 6. [Future Works](#5--future-works)
 7. [Tools Used](#6-️-tools-used)
 8. [The Team Behind the App](#7--the-team-behind-the-app)
-9. [References & Acknowledgements](#8--references--acknowledgements)
 
 ---
 
-## 1. 💡 Project Motivation
+## 1. 🛜 Project Motivation
 
-When outbreaks strike, official data often lags behind lived experience. EarlySignal was designed to close that gap — turning community observations into real-time intelligence.
+*Outbreaks don't start with headlines, and even experts struggling to see what's emerging before it's widespread.*
 
-Imagine:
-Priya, a mother in Chicago whose child wakes up with a rash and fever. She opens the EarlySignal app, chats with an AI assistant that helps her record symptoms, and instantly sees whether similar cases are appearing nearby.  
-Alex, an immunocompromised student who checks the app before heading to class to see if respiratory illnesses are rising on campus.
+Public health signals rarely appear first in official data. By the time headlines announce a measles spike, a contaminated restaurant, or a new respiratory variant, exposure has already spread through communities. Reporting pipelines are slow, delayed, and aggregated at coarse geographic levels that hide granular neighborhood-level patterns. On top of that, in the early stages of illness, symptoms often overlap so heavily across diseases that even clinicians struggle to distinguish them without lab tests, and struggling to detect outbreaks before they're widespread.
 
-Both use EarlySignal for the same purpose: to protect themselves and their community through faster, smarter information.
+*EarlySignal was built to bridge these gaps.*
 
-### Why It Matters
-Traditional surveillance systems are centralized and slow; EarlySignal empowers individuals to participate directly in outbreak detection.
-By pairing AI-guided triage with collective intelligence, the project explores a new model of crowdsourced epidemiology — one that could help identify patterns days or even weeks before official alerts.
+Imagine Priya, whose child wakes up with a rash and fever, or Alex, an immunocompromised student trying to avoid respiratory outbreaks on campus. Both need timely, localized insight that goes beyond county dashboards and anecdotal guesses to protect themselves, their family, and their community. EarlySignal gives them a way to understand what’s emerging in their immediate surroundings, drawing on real-time community reports and AI-supported guidance to make informed decisions days or weeks or even months before public alerts catch up.
 
 ---
 
 ## 2. 🛜 Overview of EarlySignal
 
-EarlySignal brings together three interconnected systems:  
-- an **LLM-powered chatbot** that guides users through symptom reporting and advice  
-- an **alert system** that analyzes community-level data for emerging clusters  
-- a **dashboard suite** that visualizes local trends and risks
-
+EarlySignal is organized around three core systems that work together end-to-end:
 
 <div align="center">
   <img src="Early_Signal_Backend/documents/images/earlysignal_workflow_diagram.png">
 </div>
 
-Together, these components form an end-to-end loop: 
-Users contribute health data → AI interprets and classifies it → spatial models detect anomalies → the community receives early warnings.
+1. **EarlySignal Agent**
+The chatbot collects symptoms, timing, and location information through a structured LLM pipeline built using Langgraph agent orchestration. During this process, a cluster-validation agent, built around the ensemble modelling framework, compares each new report with nearby cluster of cases and refines the diagnosis when strong neighborhood-level patterns appear. This is what allows the system to improve its accuracy as participation grows.
+
+2. **Alert Engine**
+All reports are mapped to census tracts and analyzed for spatial and temporal clustering. The alert engine detects anomalous concentrations of illness, identifies exposure-based clusters using DBSCAN, and evaluates whether conditions meet predefined thresholds for issuing localized alerts.
+
+3. **Dashboards**
+The aggregated data feeds into dashboards that show illness activity across tracts, cluster locations, illness category breakdowns, and recent illness trends. These dashboards give communities continuous visibility into what is circulating around them and how patterns are evolving and allows for customizable views of illness activity around them.
+
+Together, these components turn individual reports into a real-time community health signal.
 
 ---
 
-## 3. 💙 Project
+## 3. 🛜 Project
 
-### 3.1 🤖 LLM Chatbot — Personal Health Intake and Guidance
+### 3.1 🩵 EarlySignal Agent — Personal Health Intake and Guidance
 
 At the center of EarlySignal is a conversational agent built on *LangGraph*, a framework for structuring multi-step AI dialogues. The chatbot is powered by *Google’s Gemini 2.0 Flash* LLM model, which enables fast, contextual understanding of user symptoms and conversational health guidance.
 
@@ -115,7 +115,12 @@ This approach merges personalized AI care with community-level insight, bridging
 
 ---
 
-### 3.2 🚨 Alert System — Detecting Emerging Outbreaks
+#### 3.1.1 🩵 Cluster Validation Agent - Collective Intelligence Layer
+
+
+----
+
+### 3.2 🩵 Alert System — Detecting Emerging Outbreaks
 
 <div align="center">
   <img src="Early_Signal_Backend/documents/images/alert_system.jpeg" width="300" alt="Alert system image 1">
@@ -149,7 +154,7 @@ Users currently located within or near the impacted tract receive a push alert a
 
 ---
 
-### 3.3 📊 Dashboards — Seeing the Signal
+### 3.3 🩵 Dashboards — Seeing the Signal
 
 <div align="center">
   <img src="Early_Signal_Backend/documents/images/dashboard_overview.jpeg" width="300" alt="Alert system image 1">
@@ -170,7 +175,7 @@ These interfaces translate raw analytics into intuitive public insight — allow
 
 ---
 
-### 3.4. 🏗️ Architecture Overview
+### 3.4. 🩵 Architecture Overview
 
 EarlySignal combines research-grade AI with accessible mobile technology:
 
@@ -179,38 +184,57 @@ EarlySignal combines research-grade AI with accessible mobile technology:
 | **Front End** | Built in Flutter (Dart) for iOS and Android — a single responsive app that handles chat, maps, and dashboards. |
 | **Backend & Cloud** | Firebase Authentication manages logins; Cloud Functions bridge the app with BigQuery for secure data queries. |
 | **AI Orchestration** | LLM agents (Gemini 2.0 Flash) are structured using LangGraph to follow a multi-stage diagnostic flow. |
-| **Data & Storage** | BigQuery for report aggregation and alert logic; optional vector search (Pinecone / SentenceTransformers) for symptom similarity. |
+| **Data & Storage** | BigQuery for report aggregation and alert logic |
 
 This stack demonstrates how consumer-grade devices and cloud AI can collaborate to deliver population-level intelligence at minimal infrastructure cost.
 
 ---
 
-## 4. 📈 Evaluation Metrics <a id="4-evaluation-metrics"></a>
+## 4. 🛜 Evaluation Metrics <a id="4-evaluation-metrics"></a>
 
-**This section will include model performance metrics nd evaluation benchmarks once final testing is complete.**
+EarlySignal was evaluated through *qualitative guardrails* and *quantitative testing*.
 
+**Qualitative Validation**
+
+| **Component** | **Description** |
+|:--|:--|
+| *Curated disease list* | 30+ standardized outbreak diseases across 5 transmission categories |
+| *Differential diagnosis logic* | Symptom-based clarifying questions guided by structured decision patterns |
+| *Uncertainty handling* | Returns “Unknown” when confidence is insufficient instead of forcing a label |
+| *Spatial-temporal checks* | Diagnoses cross-referenced against active outbreak clusters in BigQuery |
+
+**Quantitative Validation**
+
+Synthetic outbreaks were generated across illness categories to measure accuracy on core tasks.
+
+| **Task** | **Description** | **Accuracy** |
+|:--|:--|:--|
+| *Illness category classification* | Assigning the correct illness category from symptoms and clarifiers | **90%** |
+| *Exposure location geocoding* | Parsing natural-language exposure descriptions into coordinates | **88%** |
+| *Outbreak cluster detection* | Identifying matching spatial-temporal clusters | **95%** |
+| *Outbreak cluster validation* | Confirming or revising diagnoses using nearby cluster context | **85%** |
 
 ---
 
-## 5. 💰 Market Fit and Potential
+## 5. 🛜 Market Fit and Potential
 
 Traditional public health reporting is largely reactive, with data often released weekly or even biweekly.  
 EarlySignal shifts this paradigm toward community-rooted, real-time detection.  
 
 By combining peer-to-peer symptom reporting with AI-driven spatial clustering, the system surfaces emerging health signals at a fraction of the time and cost of centralized infrastructures.  
 
-### Quantitative Comparison
+**Quantitative Comparison**
 
 | **Metric** | **Traditional Systems (E.g. CDC,NIH)** | **EarlySignal** | **Improvement** |
 |:--|:--|:--|:--|
-| **Average time from symptom onset to detection** | 7–10 days | 1 day | ~85% faster |
-| **Cost per case processed** | \$10–\$15 (staff + systems) | < \$0.10 (cloud compute) | ~99% cheaper |
-| **Geographic precision** | County/City/State level | Census tract level | 10× finer |
-| **Frequency of updates** | Weekly | Continuous | Real-time |
+| *Average time from symptom onset to detection* | 7–10 days | 1 day | ~85% faster |
+| *Cost per case processed* | \$10–\$15 (staff + systems) | < \$0.10 (cloud compute) | ~99% cheaper |
+| *Geographic precision* | County/City/State level | Census tract level | 10× finer |
+| *Frequency of updates* | Weekly | Continuous | Real-time |
 
 Even a few days of earlier awareness can translate to significant economic and health impact by reducing outbreak costs, preventing secondary cases, and enabling faster local action.
 
-### Use Cases
+**Use Cases**
 
 - Universities and schools monitoring campus health trends 
 - Local health departments supplementing official surveillance
@@ -224,21 +248,31 @@ As adoption grows, anonymized data could inform early-intervention strategies, g
 
 ---
 
-## 6. 🔮 Future Works
+## 6. 🛜 Future Works
 
-EarlySignal is an evolving platform. While the initial focus is to biild a dense peer-to-peer illness alert system for community welfare, next phases include:
+EarlySignal is an evolving platform, with the initial focus on biilding an accurate, efficient and technically sound illness alert system. 
+The next phase includes building a dense engaged user base, partnering with health organizations, and building guardrails against bad faith actors.
 
-- Partnering with local and state health departments to share aggregated alerts
-- Establishing feedback loops with clinics or testing centers to validate diagnoses
-- Extending coverage beyond the U.S. with global boundary datasets
-- Adding SMS-based reporting for low-connectivity regions
-- Expanding the “collective wisdom” logic to continuously re-train diagnostic confidence models
+**Increasing Community Engagement**
 
-Each step moves the system closer to a decentralized, democratized network for public-health intelligence.
+- Collaborate with universities, schools, NGOs and local health orgs to drive participation
+- Badges and milestones (e.g., “Community Health Leader”) motivating users to stay engaged
+  
+**Partnerships**
+
+- Test localized EarlySignal rollouts with city health offices to refine workflows and trust protocols
+- Integrate verified outbreak feeds from public health departments, universities, and NGOs
+
+**Safeguards Against Bad-Faith Reporting**
+
+- Anomaly detection using metadata such as timestamps and location spread
+- Rate-limiting and verification mechanisms to reduce spam or coordinated misuse
+- Human-in-the-loop review for suspicious clusters before issuing alerts
+
 
 ---
 
-## 7. ⚒️ Tools Used
+## 7. 🛜 Tools Used
 
 | **Category** | **Tools & Frameworks** |
 |:--|:--|
@@ -246,15 +280,14 @@ Each step moves the system closer to a decentralized, democratized network for p
 | **Project Management** | Trello |
 | **Language** | Dart, Python, SQL, JavaScript |
 | **Front-End Development** | Flutter, Google Maps SDK, Firebase Authentication |
-| **Back-End Development** | FastAPI, Firebase Cloud Functions |
+| **Back-End Development and Deployment** | FastAPI, Firebase Cloud Functions |
 | **LLM** | Gemini 2.0 Flash, LangGraph Orchestrator |
 | **Data Storage** | BigQuery |
-| **Deployment** | Google Cloud Platform (GCP), Firebase Hosting |
 | **Visualization** | Flutter Charts and Custom Dashboards, BigQuery Views |
 
 ---
 
-## 8. 🧑‍🧑‍🧒‍🧒 The Team Behind the App
+## 8. 🛜 The Team Behind the App
 
 <table>
   <tr>
@@ -276,11 +309,6 @@ Each step moves the system closer to a decentralized, democratized network for p
 </table>
 
 
-
----
-
-## 9. 📖 References & Acknowledgements
-<!-- Add citations here -->
 
 ---
 
