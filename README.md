@@ -3,7 +3,7 @@
 # EarlySignal: Democratizing public health through real-time community alerts
 
 <div align="center">
-  <img src="Early_Signal_Backend/documents/images/logo.png" width="450" alt="EarlySignal logo">
+  <img src="Misc_Documents/Images/logo.png" width="450" alt="EarlySignal logo">
 </div>
 
 </div>
@@ -18,7 +18,7 @@ EarlySignal is an AI-powered mobile platform that detects emerging outbreaks by 
 2. [Overview of EarlySignal](#2--overview-of-earlysignal)
 3. [Project](#3--project)
    - [EarlySignal Agent — Personal Health Intake and Guidance](#31--earlysignal-agent--personal-health-intake-and-guidance)
-    - [Cluster Validation Agent - Collective Intelligence Layer](#311--cluster-validation-agent--collective-intelligence-layer)
+    - [Cluster Validation Agent — Collective Intelligence Layer](#311--cluster-validation-agent--collective-intelligence-layer)
    - [Alert System — Detecting Emerging Outbreaks](#32--alert-system--detecting-emerging-outbreaks)
    - [Dashboards — Seeing the Signal](#33--dashboards--seeing-the-signal)
    - [Architecture Overview](#34--architecture-overview)
@@ -47,7 +47,7 @@ Imagine Priya, whose child wakes up with a rash and fever, or Alex, an immunocom
 EarlySignal is organized around three core systems that work together end-to-end:
 
 <div align="center">
-  <img src="Early_Signal_Backend/documents/images/earlysignal_workflow_diagram.png">
+  <img src="Misc_Documents/Images/earlysignal_workflow_diagram.png">
 </div>
 
 1. **EarlySignal Agent**
@@ -115,15 +115,14 @@ This approach merges personalized AI care with community-level insight, bridging
 
 ---
 
-### 3.1.1 🩵 Cluster Validation Agent - Collective Intelligence Layer
-
+### 3.1.1 🩵 Cluster Validation Agent — Collective Intelligence Layer
 
 ----
 
 ### 3.2 🩵 Alert System — Detecting Emerging Outbreaks
 
 <div align="center">
-  <img src="Early_Signal_Backend/documents/images/alert_system.jpeg" width="300" alt="Alert system image 1">
+  <img src="Misc_Documents/Images/alert_system.jpeg" width="300" alt="Alert system image 1">
 </div>
 
 
@@ -208,7 +207,6 @@ The EarlySignal system integrates the mobile app, authentication layer, LLM chat
 12. Firebase receives the newly submitted reports from BigQuery.
 13. Dashboard views update on the front end as new reports and clusters become available.
 
-
 ---
 
 ## 4. 🛜 Evaluation Metrics <a id="4-evaluation-metrics"></a>
@@ -266,7 +264,6 @@ Comparable initiatives such as *HealthMap* and *Flu Near You* have demonstrated 
 
 As adoption grows, anonymized data could inform early-intervention strategies, guide testing resources, and ultimately reduce outbreak impact on both local and national levels.
 
-
 ---
 
 ## 6. 🛜 Future Works
@@ -290,7 +287,6 @@ The next phase includes building a dense engaged user base, partnering with heal
 - Rate-limiting and verification mechanisms to reduce spam or coordinated misuse
 - Human-in-the-loop review for suspicious clusters before issuing alerts
 
-
 ---
 
 ## 7. 🛜 Tools Used
@@ -312,24 +308,22 @@ The next phase includes building a dense engaged user base, partnering with heal
 
 <table>
   <tr>
-    <td><img src="Early_Signal_Backend/documents/images/mahima_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Misc_Documents/Images/mahima_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/mmahima"><b>Mahima Masetty</b></a></td>
   </tr>
   <tr>
-    <td><img src="Early_Signal_Backend/documents/images/halle_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Misc_Documents/Images/halle_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/halleluya-mengesha"><b>Halleluya Mengesha</b></a></td>
   </tr>
   <tr>
-    <td><img src="Early_Signal_Backend/documents/images/sumasree_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Misc_Documents/Images/sumasree_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/sumasreeragi"><b>Sumasree Ragi</b></a></td>
   </tr>
   <tr>
-    <td><img src="Early_Signal_Backend/documents/images/hira_headshot.jpg" width="80" style="border-radius:50%;"></td>
+    <td><img src="Misc_Documents/Images/hira_headshot.jpg" width="80" style="border-radius:50%;"></td>
     <td><a href="https://www.linkedin.com/in/hirastanley95"><b>Hira Stanley</b></a></td>
   </tr>
 </table>
-
-
 
 ---
 
