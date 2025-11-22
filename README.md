@@ -10,9 +10,8 @@
 
 EarlySignal is an AI-powered mobile platform that detects emerging outbreaks by combining frontier-model diagnostic reasoning with geospatial analytics and clustering. The system collects anonymous symptoms, interprets them through a structured LLM agent, and then maps each report in both space and time using census-tract boundaries and temporal windows. By aggregating cases using clustering and comparing individual diagnoses to patterns around them, EarlySignal creates a collective medical intelligence layer that strengthens diagnostic confidence and highlights localized anomalies long before traditional surveillance systems surface them.
 
-[Alerts Demo](https://github.com/masettymahima/Early_Signal/raw/main/Misc_Documents/Videos/alerts.mov)
+[Alerts Demo](https://github.com/user-attachments/assets/e06df7f0-2896-490c-a4d4-1e77d4daecb1)
 
-[Chatbot Demo](https://github.com/masettymahima/Early_Signal/raw/main/Misc_Documents/Videos/earlysignal_agent.mov)
 
 ---
 
