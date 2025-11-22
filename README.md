@@ -13,7 +13,7 @@ EarlySignal is an AI-powered mobile platform that detects emerging outbreaks by 
 ## Test
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/de2d76de-f528-4490-9acb-54b9662cd9ad" width="350" controls></video>
+  <video src="https://raw.githubusercontent.com/masettymahima/Early_Signal/main/Misc_Documents/Videos/dashboard_exposure_sources.mp4" width="350" controls></video>
 </div>
 
 
